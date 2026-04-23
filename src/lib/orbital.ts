@@ -168,6 +168,60 @@ export function propagate(obj: OrbitObject, date: Date): PropagatedPos | null {
 export const EARTH_RADIUS_UNITS = 1; // we render Earth at radius 1
 export { EARTH_RADIUS_KM };
 
+// Spawn N debris fragments around a parent object. Reuses the validated
+// tleToObject pipeline so we never produce malformed satrecs that crash
+// the render loop.
+export function spawnFragments(parent: OrbitObject, count = 80): OrbitObject[] {
+  const baseAlt = (parent.perigeeKm + parent.apogeeKm) / 2;
+  const out: OrbitObject[] = [];
+  const stamp = Date.now();
+  let attempts = 0;
+  let i = 0;
+  while (out.length < count && attempts < count * 4) {
+    attempts++;
+    const inc = Math.max(
+      0.1,
+      Math.min(179.9, parent.inclinationDeg + (Math.random() - 0.5) * 6)
+    );
+    const altKm = Math.max(180, baseAlt + (Math.random() - 0.5) * 200);
+    const a = EARTH_RADIUS_KM + altKm;
+    const periodSec = 2 * Math.PI * Math.sqrt((a * a * a) / MU);
+    const meanMotion = 86400 / periodSec; // rev/day
+    const ecc = Math.random() * 0.03;
+    const raan = Math.random() * 360;
+    const argp = Math.random() * 360;
+    const ma = Math.random() * 360;
+
+    // NORAD id: exactly 5 digits in 80000-89999 to avoid collisions.
+    const noradId = (80000 + ((stamp + i) % 9999)).toString();
+    const eccStr = ecc.toFixed(7).slice(2);
+    const incStr = inc.toFixed(4).padStart(8, " ");
+    const raanStr = raan.toFixed(4).padStart(8, " ");
+    const argpStr = argp.toFixed(4).padStart(8, " ");
+    const maStr = ma.toFixed(4).padStart(8, " ");
+    const mmStr = meanMotion.toFixed(8).padStart(11, " ");
+
+    const l1 = `1 ${noradId}U 24001A   24001.50000000  .00000000  00000-0  00000-0 0  9990`;
+    const l2 = `2 ${noradId} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}000010`;
+    const obj = tleToObject(
+      `frag-${stamp}-${i}`,
+      `FRAG-${i}`,
+      "debris",
+      parent.country,
+      l1,
+      l2
+    );
+    i++;
+    if (!obj) continue;
+    // Verify it actually propagates without erroring before adding.
+    const test = propagate(obj, new Date());
+    if (!test || !isFinite(test.x) || !isFinite(test.y) || !isFinite(test.z)) continue;
+    obj.risk = 0.9;
+    out.push(obj);
+  }
+  return out;
+}
+
 // Build an OrbitObject from a raw TLE pair coming from CelesTrak
 export function objectFromTle(
   id: string,

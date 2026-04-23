@@ -7,8 +7,7 @@ import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, propagate } from "@/lib/orbital";
-import * as satellite from "satellite.js";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, propagate, spawnFragments } from "@/lib/orbital";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -121,54 +120,21 @@ const Index = () => {
   // Kessler cascade: spawn fragments from the chosen object's current position
   const triggerCascade = (id: string) => {
     const parent = catalog.find((o) => o.id === id);
-    if (!parent) return;
-    const pos = propagate(parent, time);
-    if (!pos) return;
-
-    const fragments: OrbitObject[] = [];
+    if (!parent) {
+      toast.error("Could not find selected object");
+      return;
+    }
+    const fragments = spawnFragments(parent, 80);
+    if (fragments.length === 0) {
+      toast.error("Cascade failed — could not generate valid fragments");
+      return;
+    }
     const newCascade = new Set(cascadeIds);
     newCascade.add(id);
-
-    const baseAlt = (parent.perigeeKm + parent.apogeeKm) / 2;
-    for (let i = 0; i < 80; i++) {
-      // Build a TLE-like satrec by perturbing parent's elements
-      const inc = parent.inclinationDeg + (Math.random() - 0.5) * 6;
-      const alt = baseAlt + (Math.random() - 0.5) * 200;
-      const a = 6371 + alt;
-      const periodSec = 2 * Math.PI * Math.sqrt((a * a * a) / 398600.4418);
-      const meanMotion = 86400 / periodSec;
-      const ecc = Math.random() * 0.03;
-      const raan = Math.random() * 360;
-      const argp = Math.random() * 360;
-      const ma = Math.random() * 360;
-      const noradId = (90000 + Math.floor(Math.random() * 9000)).toString();
-      const eccStr = ecc.toFixed(7).slice(2);
-      const incStr = inc.toFixed(4).padStart(8, " ");
-      const raanStr = raan.toFixed(4).padStart(8, " ");
-      const argpStr = argp.toFixed(4).padStart(8, " ");
-      const maStr = ma.toFixed(4).padStart(8, " ");
-      const mmStr = meanMotion.toFixed(8).padStart(11, " ");
-      const l1 = `1 ${noradId}U 24001A   24001.50000000  .00000000  00000-0  00000-0 0  9990`;
-      const l2 = `2 ${noradId} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}000010`;
-      const satrec = satellite.twoline2satrec(l1, l2);
-      if (!satrec || satrec.error) continue;
-      const fragId = `frag-${Date.now()}-${i}`;
-      fragments.push({
-        id: fragId,
-        name: `FRAG-${i}`,
-        kind: "debris",
-        country: parent.country,
-        satrec,
-        perigeeKm: a * (1 - ecc) - 6371,
-        apogeeKm: a * (1 + ecc) - 6371,
-        inclinationDeg: inc,
-        periodMin: periodSec / 60,
-        risk: 0.9,
-      });
-      newCascade.add(fragId);
-    }
-    setCatalog([...catalog, ...fragments]);
+    fragments.forEach((f) => newCascade.add(f.id));
+    setCatalog((prev) => [...prev, ...fragments]);
     setCascadeIds(newCascade);
+    toast.success(`Cascade triggered: ${fragments.length} fragments spawned from ${parent.name}`);
   };
 
   const reset = () => {
