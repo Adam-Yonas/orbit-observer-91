@@ -2,3 +2,6 @@ project_id = "wxzwhqzkibalmemrjykf"
 
 [functions.fetch-tle]
 verify_jwt = false
+
+[functions.copilot]
+verify_jwt = false

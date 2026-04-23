@@ -5,6 +5,8 @@ import { TimeScrubber } from "@/components/TimeScrubber";
 import { StatsBar } from "@/components/StatsBar";
 import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
+import { Copilot } from "@/components/Copilot";
+import { AboutPanel } from "@/components/AboutPanel";
 import { generateCatalog, fetchLiveCatalog, OrbitObject, propagate } from "@/lib/orbital";
 import * as satellite from "satellite.js";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
@@ -274,6 +276,8 @@ const Index = () => {
         playing={playing}
         setPlaying={setPlaying}
       />
+      <Copilot catalog={catalog} />
+      <AboutPanel />
     </main>
   );
 };
