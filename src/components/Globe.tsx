@@ -199,7 +199,7 @@ export function Globe(props: GlobeProps) {
       <pointLight position={[-5, -2, -5]} intensity={0.5} color="#22d3ee" />
       <Stars radius={50} depth={50} count={3000} factor={3} fade speed={0.5} />
       <Earth />
-      <DebrisCloud {...props} />
+      <DebrisCloud key={props.catalog.length} {...props} />
       <OrbitControls
         enablePan={false}
         minDistance={1.6}
