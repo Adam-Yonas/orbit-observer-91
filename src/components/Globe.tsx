@@ -21,6 +21,8 @@ const COLORS = {
   selected: new THREE.Color("#ffffff"),
 };
 
+const MAX_RENDERED_OBJECTS = 6000;
+
 function Earth() {
   const ref = useRef<THREE.Mesh>(null);
   useFrame((_, delta) => {
@@ -62,25 +64,37 @@ function DebrisCloud({
   cascadeIds,
 }: GlobeProps) {
   const pointsRef = useRef<THREE.Points>(null);
-  const positions = useMemo(() => new Float32Array(catalog.length * 3), [catalog.length]);
-  const colors = useMemo(() => new Float32Array(catalog.length * 3), [catalog.length]);
-  const sizes = useMemo(() => new Float32Array(catalog.length), [catalog.length]);
+  const positions = useMemo(() => new Float32Array(MAX_RENDERED_OBJECTS * 3), []);
+  const colors = useMemo(() => new Float32Array(MAX_RENDERED_OBJECTS * 3), []);
+  const sizes = useMemo(() => new Float32Array(MAX_RENDERED_OBJECTS), []);
 
-  // initialize colors based on kind
+  // initialize colors based on kind and park unused slots off-screen
   useEffect(() => {
-    catalog.forEach((o, i) => {
-      const c = COLORS[o.kind];
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
-      sizes[i] = o.kind === "payload" ? 0.012 : 0.008;
-    });
+    for (let i = 0; i < MAX_RENDERED_OBJECTS; i++) {
+      if (i < catalog.length) {
+        const o = catalog[i];
+        const c = COLORS[o.kind];
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+        sizes[i] = o.kind === "payload" ? 0.012 : 0.008;
+      } else {
+        positions[i * 3] = 1e6;
+        positions[i * 3 + 1] = 1e6;
+        positions[i * 3 + 2] = 1e6;
+        colors[i * 3] = 0;
+        colors[i * 3 + 1] = 0;
+        colors[i * 3 + 2] = 0;
+        sizes[i] = 0;
+      }
+    }
     if (pointsRef.current) {
       const geom = pointsRef.current.geometry;
+      (geom.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       (geom.attributes.color as THREE.BufferAttribute).needsUpdate = true;
       (geom.attributes.size as THREE.BufferAttribute).needsUpdate = true;
     }
-  }, [catalog, colors, sizes]);
+  }, [catalog, colors, positions, sizes]);
 
   useFrame(() => {
     let updated = false;
@@ -157,19 +171,19 @@ function DebrisCloud({
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={catalog.length}
+          count={MAX_RENDERED_OBJECTS}
           array={positions}
           itemSize={3}
         />
         <bufferAttribute
           attach="attributes-color"
-          count={catalog.length}
+          count={MAX_RENDERED_OBJECTS}
           array={colors}
           itemSize={3}
         />
         <bufferAttribute
           attach="attributes-size"
-          count={catalog.length}
+          count={MAX_RENDERED_OBJECTS}
           array={sizes}
           itemSize={1}
         />
@@ -199,7 +213,7 @@ export function Globe(props: GlobeProps) {
       <pointLight position={[-5, -2, -5]} intensity={0.5} color="#22d3ee" />
       <Stars radius={50} depth={50} count={3000} factor={3} fade speed={0.5} />
       <Earth />
-      <DebrisCloud key={props.catalog.length} {...props} />
+      <DebrisCloud {...props} />
       <OrbitControls
         enablePan={false}
         minDistance={1.6}
