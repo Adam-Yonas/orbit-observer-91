@@ -5,12 +5,17 @@ import { TimeScrubber } from "@/components/TimeScrubber";
 import { StatsBar } from "@/components/StatsBar";
 import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
-import { generateCatalog, OrbitObject, propagate } from "@/lib/orbital";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, propagate } from "@/lib/orbital";
 import * as satellite from "satellite.js";
-import { Satellite, AlertTriangle } from "lucide-react";
+import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+type DataSource = "live" | "synthetic";
 
 const Index = () => {
   const [catalog, setCatalog] = useState<OrbitObject[]>([]);
+  const [dataSource, setDataSource] = useState<DataSource>("live");
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({
     payload: true,
     rocket_body: true,
@@ -26,10 +31,53 @@ const Index = () => {
   const [speed, setSpeed] = useState(60);
   const [playing, setPlaying] = useState(true);
 
-  // Generate the catalog once
+  // Load catalog (live or synthetic)
   useEffect(() => {
-    setCatalog(generateCatalog(2200));
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setCascadeIds(new Set());
+
+    if (dataSource === "synthetic") {
+      const cat = generateCatalog(2200);
+      if (!cancelled) {
+        setCatalog(cat);
+        setLoading(false);
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    fetchLiveCatalog([
+      "active",
+      "iridium-33-debris",
+      "cosmos-1408-debris",
+      "fengyun-1c-debris",
+    ])
+      .then((cat) => {
+        if (cancelled) return;
+        if (cat.length === 0) {
+          toast.error("Live feed empty — falling back to synthetic catalog");
+          setCatalog(generateCatalog(2200));
+        } else {
+          setCatalog(cat);
+          toast.success(`Loaded ${cat.length.toLocaleString()} live objects from CelesTrak`);
+        }
+      })
+      .catch((err) => {
+        console.error("Live catalog fetch failed", err);
+        if (cancelled) return;
+        toast.error("CelesTrak fetch failed — using synthetic catalog");
+        setCatalog(generateCatalog(2200));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSource]);
 
   // Time animation loop
   useEffect(() => {
