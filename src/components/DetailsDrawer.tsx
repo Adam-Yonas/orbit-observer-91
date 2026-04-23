@@ -24,6 +24,11 @@ export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
     obj.risk > 0.7 ? "text-danger" : obj.risk > 0.4 ? "text-accent" : "text-success";
 
   return (
+  const [count, setCount] = useState(80);
+  const [mass, setMass] = useState(100);
+  const [vel, setVel] = useState(10);
+
+  return (
     <div className="absolute right-4 top-20 bottom-4 w-80 panel rounded-lg p-5 z-20 overflow-y-auto">
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -70,17 +75,94 @@ export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
           </div>
         </div>
 
-        <Button
-          variant="destructive"
-          className="w-full mt-4"
-          onClick={() => onCascade(obj.id)}
-        >
-          Trigger Kessler Cascade
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          Simulates a fragmentation event creating ~80 debris pieces in nearby orbits.
-        </p>
+        <div className="pt-3 border-t border-border space-y-3">
+          <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+            Collision parameters
+          </div>
+
+          <SliderRow
+            label="Impactor mass"
+            value={`${mass} kg`}
+            min={1}
+            max={2000}
+            step={1}
+            v={mass}
+            onChange={setMass}
+          />
+          <SliderRow
+            label="Relative velocity"
+            value={`${vel.toFixed(1)} km/s`}
+            min={0.5}
+            max={15}
+            step={0.1}
+            v={vel}
+            onChange={setVel}
+          />
+          <SliderRow
+            label="Fragments"
+            value={`${count}`}
+            min={20}
+            max={300}
+            step={10}
+            v={count}
+            onChange={setCount}
+          />
+
+          <Button
+            variant="destructive"
+            className="w-full mt-2"
+            onClick={() =>
+              onCascade(obj.id, {
+                count,
+                impactorMassKg: mass,
+                impactorVelKms: vel,
+              })
+            }
+          >
+            Trigger Kessler Cascade
+          </Button>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Fragments inherit the parent's state vector at impact, then receive
+            an isotropic Δv kick scaled by (m<sub>impactor</sub> × v<sub>rel</sub>) /
+            m<sub>target</sub>. New orbits are computed from the resulting state
+            and propagated with SGP4.
+          </p>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  min,
+  max,
+  step,
+  v,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+  v: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-muted-foreground uppercase tracking-wider">{label}</span>
+        <span className="font-mono">{value}</span>
+      </div>
+      <Slider
+        value={[v]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={(vals) => onChange(vals[0])}
+      />
     </div>
   );
 }
