@@ -88,13 +88,25 @@ function DebrisCloud({
       const o = catalog[i];
       const visible = visibleIds.has(o.id);
       if (!visible) {
-        positions[i * 3] = 0;
-        positions[i * 3 + 1] = 0;
-        positions[i * 3 + 2] = 0;
+        // Park hidden points far off-screen so they don't intercept clicks
+        // (collapsing to the origin makes every raycast hit the same vertex).
+        positions[i * 3] = 1e6;
+        positions[i * 3 + 1] = 1e6;
+        positions[i * 3 + 2] = 1e6;
         continue;
       }
-      const p = propagate(o, time);
-      if (!p) continue;
+      let p;
+      try {
+        p = propagate(o, time);
+      } catch {
+        p = null;
+      }
+      if (!p || !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) {
+        positions[i * 3] = 1e6;
+        positions[i * 3 + 1] = 1e6;
+        positions[i * 3 + 2] = 1e6;
+        continue;
+      }
       // satellite.js ECI: x, y in equatorial plane, z toward north pole
       // three.js: y is up. Map (x, z, y) → so z-axis (north) becomes Y in scene.
       positions[i * 3] = p.x;
@@ -128,8 +140,15 @@ function DebrisCloud({
 
   const handleClick = (e: any) => {
     e.stopPropagation();
-    if (e.index !== undefined && catalog[e.index]) {
-      onSelect(catalog[e.index].id);
+    // Find nearest *visible* intersection — three.js may report hits on
+    // parked (off-screen) vertices via threshold radius otherwise.
+    const hits = (e.intersections ?? []).filter((h: any) => {
+      const idx = h.index;
+      return idx !== undefined && catalog[idx] && visibleIds.has(catalog[idx].id);
+    });
+    const hit = hits[0] ?? (e.index !== undefined && visibleIds.has(catalog[e.index]?.id) ? e : null);
+    if (hit && hit.index !== undefined && catalog[hit.index]) {
+      onSelect(catalog[hit.index].id);
     }
   };
 
