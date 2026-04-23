@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      tle_cache: {
+        Row: {
+          fetched_at: string
+          group_name: string
+          id: string
+          line1: string
+          line2: string
+          name: string
+          norad_id: string
+        }
+        Insert: {
+          fetched_at?: string
+          group_name: string
+          id?: string
+          line1: string
+          line2: string
+          name: string
+          norad_id: string
+        }
+        Update: {
+          fetched_at?: string
+          group_name?: string
+          id?: string
+          line1?: string
+          line2?: string
+          name?: string
+          norad_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
