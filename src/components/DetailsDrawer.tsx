@@ -17,16 +17,15 @@ interface Props {
 }
 
 export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
+  const [count, setCount] = useState(80);
+  const [mass, setMass] = useState(100);
+  const [vel, setVel] = useState(10);
+
   if (!obj) return null;
   const altMid = ((obj.perigeeKm + obj.apogeeKm) / 2).toFixed(0);
   const riskPct = (obj.risk * 100).toFixed(0);
   const riskColor =
     obj.risk > 0.7 ? "text-danger" : obj.risk > 0.4 ? "text-accent" : "text-success";
-
-  return (
-  const [count, setCount] = useState(80);
-  const [mass, setMass] = useState(100);
-  const [vel, setVel] = useState(10);
 
   return (
     <div className="absolute right-4 top-20 bottom-4 w-80 panel rounded-lg p-5 z-20 overflow-y-auto">
