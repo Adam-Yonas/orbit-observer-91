@@ -167,3 +167,63 @@ export function propagate(obj: OrbitObject, date: Date): PropagatedPos | null {
 
 export const EARTH_RADIUS_UNITS = 1; // we render Earth at radius 1
 export { EARTH_RADIUS_KM };
+
+// Build an OrbitObject from a raw TLE pair coming from CelesTrak
+export function objectFromTle(
+  id: string,
+  name: string,
+  kind: DebrisKind,
+  country: string,
+  l1: string,
+  l2: string
+): OrbitObject | null {
+  return tleToObject(id, name, kind, country, l1, l2);
+}
+
+interface LiveTleRow {
+  name: string;
+  noradId: string;
+  line1: string;
+  line2: string;
+  group: string;
+}
+
+function classifyFromName(name: string): DebrisKind {
+  const n = name.toUpperCase();
+  if (n.includes("DEB")) return "debris";
+  if (n.includes("R/B") || n.includes("ROCKET")) return "rocket_body";
+  return "payload";
+}
+
+export async function fetchLiveCatalog(
+  groups: string[] = ["active", "iridium-33-debris", "cosmos-1408-debris"],
+  supabaseUrl?: string
+): Promise<OrbitObject[]> {
+  const base =
+    supabaseUrl ?? (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL;
+  if (!base) throw new Error("VITE_SUPABASE_URL not configured");
+
+  const all: OrbitObject[] = [];
+  for (const group of groups) {
+    const url = `${base}/functions/v1/fetch-tle?group=${encodeURIComponent(group)}&limit=2000`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn(`fetch-tle failed for ${group}: ${resp.status}`);
+      continue;
+    }
+    const json: { objects: LiveTleRow[] } = await resp.json();
+    json.objects.forEach((row, i) => {
+      const kind = group.includes("debris") ? "debris" : classifyFromName(row.name);
+      const obj = tleToObject(
+        `live-${group}-${row.noradId}-${i}`,
+        row.name,
+        kind,
+        "INTL",
+        row.line1,
+        row.line2
+      );
+      if (obj) all.push(obj);
+    });
+  }
+  return all;
+}

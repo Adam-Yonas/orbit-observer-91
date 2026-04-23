@@ -1,1 +1,4 @@
 project_id = "wxzwhqzkibalmemrjykf"
+
+[functions.fetch-tle]
+verify_jwt = false
