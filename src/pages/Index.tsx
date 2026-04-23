@@ -118,15 +118,18 @@ const Index = () => {
   );
 
   // Kessler cascade: spawn fragments from the chosen object's current position
-  const triggerCascade = (id: string) => {
+  const triggerCascade = (
+    id: string,
+    inputs: { count: number; impactorMassKg: number; impactorVelKms: number }
+  ) => {
     const parent = catalog.find((o) => o.id === id);
     if (!parent) {
       toast.error("Could not find selected object");
       return;
     }
-    const fragments = spawnFragments(parent, 80);
+    const fragments = spawnFragments(parent, inputs, time);
     if (fragments.length === 0) {
-      toast.error("Cascade failed — could not generate valid fragments");
+      toast.error("Cascade failed — fragments escaped or decayed");
       return;
     }
     const newCascade = new Set(cascadeIds);
@@ -134,7 +137,12 @@ const Index = () => {
     fragments.forEach((f) => newCascade.add(f.id));
     setCatalog((prev) => [...prev, ...fragments]);
     setCascadeIds(newCascade);
-    toast.success(`Cascade triggered: ${fragments.length} fragments spawned from ${parent.name}`);
+    toast.success(
+      `Cascade: ${fragments.length} fragments · Δv scale ≈ ${(
+        (inputs.impactorMassKg / Math.max(50, parent.kind === "payload" ? 1500 : 2000)) *
+        inputs.impactorVelKms
+      ).toFixed(2)} km/s`
+    );
   };
 
   const reset = () => {
