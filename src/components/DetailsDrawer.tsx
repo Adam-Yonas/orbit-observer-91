@@ -1,11 +1,19 @@
+import { useState } from "react";
 import { OrbitObject } from "@/lib/orbital";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { X } from "lucide-react";
+
+export interface CascadeInputs {
+  count: number;
+  impactorMassKg: number;
+  impactorVelKms: number;
+}
 
 interface Props {
   obj: OrbitObject | null;
   onClose: () => void;
-  onCascade: (id: string) => void;
+  onCascade: (id: string, inputs: CascadeInputs) => void;
 }
 
 export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
