@@ -11,6 +11,7 @@ interface Message {
 
 interface Props {
   catalog: OrbitObject[];
+  externalPrompt?: { text: string; nonce: number } | null;
 }
 
 const SUGGESTIONS = [
@@ -20,7 +21,7 @@ const SUGGESTIONS = [
   "Summarize the catalog",
 ];
 
-export function Copilot({ catalog }: Props) {
+export function Copilot({ catalog, externalPrompt }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
