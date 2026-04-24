@@ -136,7 +136,7 @@ const Index = () => {
   // Kessler cascade: spawn fragments from the chosen object's current position
   const triggerCascade = async (id: string, inputs: CascadeInputs) => {
     if (cascadeRunning) return;
-    const parent = catalog.find((o) => o.id === id);
+    const parent = renderedCatalog.find((o) => o.id === id);
     if (!parent) {
       toast.error("Could not find selected object");
       return;
