@@ -119,31 +119,62 @@ const Index = () => {
   );
 
   // Kessler cascade: spawn fragments from the chosen object's current position
-  const triggerCascade = (
-    id: string,
-    inputs: { count: number; impactorMassKg: number; impactorVelKms: number }
-  ) => {
+  const triggerCascade = (id: string, inputs: CascadeInputs) => {
     const parent = catalog.find((o) => o.id === id);
     if (!parent) {
       toast.error("Could not find selected object");
       return;
     }
-    const fragments = spawnFragments(parent, inputs, time);
+    const fragments = spawnFragments(
+      parent,
+      {
+        count: inputs.count,
+        impactorMassKg: inputs.impactorMassKg,
+        impactorVelKms: inputs.impactorVelKms,
+        impactorDirVNC: { v: inputs.dirV, n: inputs.dirN, c: inputs.dirC },
+        ejectaConeDeg: inputs.ejectaConeDeg,
+      },
+      time
+    );
     if (fragments.length === 0) {
       toast.error("Cascade failed — fragments escaped or decayed");
       return;
     }
+
     const newCascade = new Set(cascadeIds);
     newCascade.add(id);
     fragments.forEach((f) => newCascade.add(f.id));
-    setCatalog((prev) => [...prev, ...fragments]);
+
+    let chainFragments: OrbitObject[] = [];
+    let destroyedIds: string[] = [];
+    let events: Array<{ victimId: string; generation: number }> = [];
+
+    if (inputs.chainEnabled) {
+      const result = runChainReaction(catalog, fragments, time, {
+        horizonMin: inputs.chainHorizonMin,
+        missDistanceKm: inputs.missDistanceKm,
+      });
+      chainFragments = result.newFragments;
+      destroyedIds = result.destroyedIds;
+      events = result.events;
+      destroyedIds.forEach((d) => newCascade.add(d));
+      chainFragments.forEach((f) => newCascade.add(f.id));
+    }
+
+    setCatalog((prev) => [...prev, ...fragments, ...chainFragments]);
     setCascadeIds(newCascade);
-    toast.success(
-      `Cascade: ${fragments.length} fragments · Δv scale ≈ ${(
-        (inputs.impactorMassKg / Math.max(50, parent.kind === "payload" ? 1500 : 2000)) *
-        inputs.impactorVelKms
-      ).toFixed(2)} km/s`
-    );
+
+    const totalFrags = fragments.length + chainFragments.length;
+    const generations = events.reduce((m, e) => Math.max(m, e.generation), 0);
+    if (events.length > 0) {
+      toast.success(
+        `Cascade: ${totalFrags} fragments · ${events.length} secondary collisions · ${generations} generation${generations === 1 ? "" : "s"}`
+      );
+    } else {
+      toast.success(
+        `Cascade: ${totalFrags} fragments · no chain hits within horizon`
+      );
+    }
   };
 
   const reset = () => {
