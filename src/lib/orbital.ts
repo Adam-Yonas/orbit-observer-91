@@ -185,6 +185,23 @@ export interface CascadeParams {
   impactorMassKg: number;   // mass of striking object
   impactorVelKms: number;   // relative impact velocity (km/s)
   targetMassKg?: number;    // optional override for parent mass
+  // Impactor approach direction in the parent's local Velocity / Normal / Co-normal
+  // (VNC) frame. Each component is a fraction of the impactor velocity vector
+  // along that axis. Defaults to a head-on retrograde hit (-1, 0, 0).
+  // V = along parent velocity, N = orbit normal, C = radial (out from Earth).
+  impactorDirVNC?: { v: number; n: number; c: number };
+  // Cone half-angle (deg) around the post-collision momentum vector that the
+  // ejecta is biased into. 180 = fully isotropic (default); smaller values
+  // produce a focused debris jet in the direction of the impact.
+  ejectaConeDeg?: number;
+}
+
+export interface ChainCollisionEvent {
+  parentId: string;
+  fragmentId: string;
+  victimId: string;
+  altKm: number;
+  generation: number;
 }
 
 const J2000 = new Date(Date.UTC(2000, 0, 1, 12, 0, 0)).getTime();
