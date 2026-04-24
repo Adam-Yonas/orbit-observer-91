@@ -127,7 +127,6 @@ const Index = () => {
       toast.error("Could not find selected object");
       return;
     }
-    setCascadeRunning(true);
     const fragments = spawnFragments(
       parent,
       {
@@ -143,6 +142,11 @@ const Index = () => {
       toast.error("Cascade failed — fragments escaped or decayed");
       return;
     }
+    fragments.forEach((fragment) => {
+      fragment.collisionGeneration = 0;
+    });
+
+    setCascadeRunning(true);
 
     const newCascade = new Set(cascadeIds);
     newCascade.add(id);
