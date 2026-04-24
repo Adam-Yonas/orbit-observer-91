@@ -1,6 +1,6 @@
 import * as satellite from "satellite.js";
 
-export type DebrisKind = "payload" | "rocket_body" | "debris";
+export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
 export interface OrbitObject {
   id: string;
