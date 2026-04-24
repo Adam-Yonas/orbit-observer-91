@@ -463,6 +463,155 @@ export function spawnFragments(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Chain-reaction conjunction screening
+// ---------------------------------------------------------------------------
+// After a breakup we step the simulation forward in coarse intervals and check
+// whether any new fragment passes within a chosen miss-distance of another
+// catalog object. Each hit shatters the victim using a smaller secondary event
+// (less momentum than the user-defined primary impact). This is what makes a
+// real Kessler scenario "cascade" — one breakup seeds the next.
+
+export interface ChainOptions {
+  horizonMin: number;          // how far forward (sim minutes) to screen
+  stepSec: number;             // sampling step size (seconds)
+  missDistanceKm: number;      // Euclidean distance counted as a hit
+  maxGenerations: number;      // recursion depth cap
+  maxNewFragments: number;     // safety cap to keep render stable
+  fragmentsPerHit: number;     // fragments produced by each secondary breakup
+  fragmentMassKg?: number;     // assumed mass of a fragment striking a target
+  fragmentVelKms?: number;     // assumed relative velocity at secondary impact
+}
+
+export interface ChainResult {
+  newFragments: OrbitObject[];
+  destroyedIds: string[];
+  events: ChainCollisionEvent[];
+}
+
+const DEFAULT_CHAIN: ChainOptions = {
+  horizonMin: 90,
+  stepSec: 30,
+  missDistanceKm: 5,
+  maxGenerations: 3,
+  maxNewFragments: 600,
+  fragmentsPerHit: 30,
+  fragmentMassKg: 2,
+  fragmentVelKms: 12,
+};
+
+// Quick ECI position in km (no normalization) at a specific time.
+function positionKm(obj: OrbitObject, date: Date): { x: number; y: number; z: number } | null {
+  const pv = satellite.propagate(obj.satrec, date);
+  if (!pv || !pv.position || typeof pv.position === "boolean") return null;
+  const p = pv.position as satellite.EciVec3<number>;
+  if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) return null;
+  return { x: p.x, y: p.y, z: p.z };
+}
+
+export function runChainReaction(
+  catalog: OrbitObject[],
+  initialFragments: OrbitObject[],
+  startTime: Date,
+  options: Partial<ChainOptions> = {}
+): ChainResult {
+  const opts = { ...DEFAULT_CHAIN, ...options };
+  const aliveCatalog = new Map(catalog.map((o) => [o.id, o]));
+  // Don't allow fragments to "hit" their own siblings — only the surrounding
+  // background population, otherwise we get a runaway self-collision blob.
+  const fragmentIds = new Set(initialFragments.map((f) => f.id));
+  const destroyedIds: string[] = [];
+  const events: ChainCollisionEvent[] = [];
+  const newFragments: OrbitObject[] = [];
+
+  let generation = 1;
+  let activeFragments = initialFragments.slice();
+  const missSq = opts.missDistanceKm * opts.missDistanceKm;
+  const stepMs = opts.stepSec * 1000;
+  const horizonMs = opts.horizonMin * 60 * 1000;
+
+  while (
+    generation <= opts.maxGenerations &&
+    activeFragments.length > 0 &&
+    newFragments.length < opts.maxNewFragments
+  ) {
+    const nextGenFragments: OrbitObject[] = [];
+
+    // Pre-pick a subset of victims to keep this O(N) rather than O(N²).
+    // Only screen against alive, non-fragment catalog objects.
+    const victims = Array.from(aliveCatalog.values()).filter(
+      (o) => !fragmentIds.has(o.id) && !destroyedIds.includes(o.id)
+    );
+    if (victims.length === 0) break;
+
+    // Walk forward in time. First fragment to come within missDistanceKm of any
+    // victim wins the collision and we move to the next fragment.
+    for (const frag of activeFragments) {
+      if (newFragments.length >= opts.maxNewFragments) break;
+
+      let hit: { victim: OrbitObject; t: Date } | null = null;
+      for (let dt = stepMs; dt <= horizonMs && !hit; dt += stepMs) {
+        const t = new Date(startTime.getTime() + dt);
+        const fp = positionKm(frag, t);
+        if (!fp) continue;
+        for (const victim of victims) {
+          const vp = positionKm(victim, t);
+          if (!vp) continue;
+          const dx = fp.x - vp.x;
+          const dy = fp.y - vp.y;
+          const dz = fp.z - vp.z;
+          if (dx * dx + dy * dy + dz * dz < missSq) {
+            hit = { victim, t };
+            break;
+          }
+        }
+      }
+
+      if (!hit) continue;
+
+      // Secondary breakup — smaller momentum coupling than the primary.
+      const secondary = spawnFragments(
+        hit.victim,
+        {
+          count: opts.fragmentsPerHit,
+          impactorMassKg: opts.fragmentMassKg ?? 2,
+          impactorVelKms: opts.fragmentVelKms ?? 12,
+          ejectaConeDeg: 180,
+        },
+        hit.t
+      );
+      if (secondary.length === 0) continue;
+
+      destroyedIds.push(hit.victim.id);
+      aliveCatalog.delete(hit.victim.id);
+      const altKm =
+        Math.hypot(
+          ...(["x", "y", "z"] as const).map(
+            (k) => (positionKm(hit!.victim, hit!.t) ?? { x: 0, y: 0, z: 0 })[k]
+          )
+        ) - EARTH_RADIUS_KM;
+      events.push({
+        parentId: frag.id,
+        fragmentId: frag.id,
+        victimId: hit.victim.id,
+        altKm,
+        generation,
+      });
+      secondary.forEach((s) => {
+        s.risk = 1;
+        fragmentIds.add(s.id);
+        newFragments.push(s);
+        nextGenFragments.push(s);
+      });
+    }
+
+    activeFragments = nextGenFragments;
+    generation++;
+  }
+
+  return { newFragments, destroyedIds, events };
+}
+
 // Build an OrbitObject from a raw TLE pair coming from CelesTrak
 export function objectFromTle(
   id: string,
