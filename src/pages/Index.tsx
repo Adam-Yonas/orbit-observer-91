@@ -129,8 +129,8 @@ const Index = () => {
   }, [renderedCatalog, filters]);
 
   const selectedObj = useMemo(
-    () => catalog.find((o) => o.id === selectedId) ?? null,
-    [catalog, selectedId]
+    () => renderedCatalog.find((o) => o.id === selectedId) ?? null,
+    [renderedCatalog, selectedId]
   );
 
   // Kessler cascade: spawn fragments from the chosen object's current position
@@ -271,9 +271,9 @@ const Index = () => {
 
       {/* 3D scene fills viewport */}
       <div className="absolute inset-0">
-        {catalog.length > 0 && (
+        {renderedCatalog.length > 0 && (
           <Globe
-            catalog={catalog}
+            catalog={renderedCatalog}
             visibleIds={visibleIds}
             time={time}
             selectedId={selectedId}
@@ -308,7 +308,17 @@ const Index = () => {
         playing={playing}
         setPlaying={setPlaying}
       />
-      <Copilot catalog={catalog} />
+      <LaunchPanel
+        catalog={catalog}
+        time={time}
+        userObject={userObject}
+        setUserObject={setUserObject}
+        conjunctions={conjunctions}
+        setConjunctions={setConjunctions}
+        onAskCopilot={(text) => setCopilotPrompt({ text, nonce: Date.now() })}
+        onSelect={setSelectedId}
+      />
+      <Copilot catalog={catalog} externalPrompt={copilotPrompt} />
       <AboutPanel />
     </main>
   );
