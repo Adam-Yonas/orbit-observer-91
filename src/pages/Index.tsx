@@ -106,17 +106,27 @@ const Index = () => {
     [offsetMin]
   );
 
+  // Combined catalog including the user satellite (if any)
+  const renderedCatalog = useMemo(
+    () => (userObject ? [...catalog, userObject] : catalog),
+    [catalog, userObject]
+  );
+
   // Visible IDs based on filters
   const visibleIds = useMemo(() => {
     const set = new Set<string>();
-    catalog.forEach((o) => {
+    renderedCatalog.forEach((o) => {
+      if (o.kind === "user") {
+        set.add(o.id);
+        return;
+      }
       if (!filters[o.kind]) return;
       const mid = (o.perigeeKm + o.apogeeKm) / 2;
       if (mid < filters.altMin || mid > filters.altMax) return;
       set.add(o.id);
     });
     return set;
-  }, [catalog, filters]);
+  }, [renderedCatalog, filters]);
 
   const selectedObj = useMemo(
     () => catalog.find((o) => o.id === selectedId) ?? null,
