@@ -7,7 +7,8 @@ import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, propagate, spawnFragments } from "@/lib/orbital";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReaction } from "@/lib/orbital";
+import type { CascadeInputs } from "@/components/DetailsDrawer";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
