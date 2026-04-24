@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+build: {
+  outDir: "dist",
+},
+
 export default defineConfig(({ mode }) => ({
   base: "/orbit-observer-91/",
   server: {
