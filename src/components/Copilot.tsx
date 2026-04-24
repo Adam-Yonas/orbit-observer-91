@@ -38,6 +38,13 @@ export function Copilot({ catalog, externalPrompt }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  useEffect(() => {
+    if (!externalPrompt) return;
+    setOpen(true);
+    send(externalPrompt.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalPrompt?.nonce]);
+
   async function send(text: string) {
     if (!text.trim() || loading) return;
     const userMsg: Message = { role: "user", content: text };
