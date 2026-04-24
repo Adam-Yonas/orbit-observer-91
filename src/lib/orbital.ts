@@ -1,6 +1,6 @@
 import * as satellite from "satellite.js";
 
-export type DebrisKind = "payload" | "rocket_body" | "debris";
+export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
 export interface OrbitObject {
   id: string;
@@ -747,4 +747,187 @@ export async function fetchLiveCatalog(
     });
   }
   return all;
+}
+
+// ---------------------------------------------------------------------------
+// Custom user-defined orbits + conjunction screening
+// ---------------------------------------------------------------------------
+
+export interface UserOrbitParams {
+  name?: string;
+  altKm: number;          // circular altitude (or perigee if eccentric)
+  incDeg: number;
+  raanDeg?: number;
+  eccentricity?: number;
+  argpDeg?: number;
+  meanAnomalyDeg?: number;
+}
+
+export function buildUserOrbit(p: UserOrbitParams, epoch: Date = new Date()): OrbitObject | null {
+  const altKm = Math.max(180, Math.min(36000, p.altKm));
+  const a = EARTH_RADIUS_KM + altKm;
+  const periodSec = 2 * Math.PI * Math.sqrt((a * a * a) / MU);
+  const meanMotion = 86400 / periodSec;
+  const ecc = Math.max(0, Math.min(0.2, p.eccentricity ?? 0));
+  const inc = Math.max(0, Math.min(180, p.incDeg));
+  const raan = ((p.raanDeg ?? 0) % 360 + 360) % 360;
+  const argp = ((p.argpDeg ?? 0) % 360 + 360) % 360;
+  const ma = ((p.meanAnomalyDeg ?? 0) % 360 + 360) % 360;
+
+  const epochYear = (epoch.getUTCFullYear() % 100).toString().padStart(2, "0");
+  const yearStart = Date.UTC(epoch.getUTCFullYear(), 0, 1);
+  const epochDay = ((epoch.getTime() - yearStart) / 86400000 + 1).toFixed(8).padStart(12, "0");
+  const noradId = (90000 + (Date.now() % 9999)).toString();
+
+  const eccStr = ecc.toFixed(7).slice(2);
+  const incStr = inc.toFixed(4).padStart(8, " ");
+  const raanStr = raan.toFixed(4).padStart(8, " ");
+  const argpStr = argp.toFixed(4).padStart(8, " ");
+  const maStr = ma.toFixed(4).padStart(8, " ");
+  const mmStr = meanMotion.toFixed(8).padStart(11, " ");
+
+  const l1 = `1 ${noradId}U 24001A   ${epochYear}${epochDay}  .00000000  00000-0  00000-0 0  9990`;
+  const l2 = `2 ${noradId} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}000010`;
+
+  const id = `user-${Date.now()}`;
+  const obj = tleToObject(id, p.name ?? "MY SAT", "user", "USER", l1, l2);
+  if (!obj) return null;
+  obj.risk = 0;
+  return obj;
+}
+
+export interface Conjunction {
+  victimId: string;
+  victimName: string;
+  victimKind: DebrisKind;
+  minDistanceKm: number;
+  timeOffsetMin: number;     // minutes from screening start
+  altKm: number;
+}
+
+export interface ConjunctionOptions {
+  horizonMin: number;        // forward-screening window (sim minutes)
+  stepSec: number;
+  missDistanceKm: number;
+  maxResults: number;
+}
+
+const DEFAULT_CONJ: ConjunctionOptions = {
+  horizonMin: 720,           // 12 h forward
+  stepSec: 30,
+  missDistanceKm: 10,
+  maxResults: 50,
+};
+
+export function screenConjunctions(
+  user: OrbitObject,
+  catalog: OrbitObject[],
+  startTime: Date,
+  options: Partial<ConjunctionOptions> = {}
+): Conjunction[] {
+  const opts = { ...DEFAULT_CONJ, ...options };
+  const missSq = opts.missDistanceKm * opts.missDistanceKm;
+  const cellSize = Math.max(opts.missDistanceKm * 2, 25);
+  const stepMs = opts.stepSec * 1000;
+  const horizonMs = opts.horizonMin * 60 * 1000;
+  const others = catalog.filter((o) => o.id !== user.id);
+
+  // Track best (smallest) miss per victim
+  const best = new Map<string, Conjunction>();
+
+  for (let dt = 0; dt <= horizonMs; dt += stepMs) {
+    const t = new Date(startTime.getTime() + dt);
+    const userPos = positionKm(user, t);
+    if (!userPos) continue;
+
+    // Build grid only of nearby objects each step would be expensive;
+    // build full grid each step but only every Nth step to limit cost.
+    const grid = buildVictimGrid(others, t, cellSize);
+    const cx = Math.floor(userPos.x / cellSize);
+    const cy = Math.floor(userPos.y / cellSize);
+    const cz = Math.floor(userPos.z / cellSize);
+
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dz = -1; dz <= 1; dz++) {
+          const bucket = grid.get([cx + dx, cy + dy, cz + dz].join(":"));
+          if (!bucket) continue;
+          for (const cand of bucket) {
+            const px = userPos.x - cand.pos.x;
+            const py = userPos.y - cand.pos.y;
+            const pz = userPos.z - cand.pos.z;
+            const d2 = px * px + py * py + pz * pz;
+            if (d2 > missSq) continue;
+            const d = Math.sqrt(d2);
+            const prev = best.get(cand.obj.id);
+            if (!prev || d < prev.minDistanceKm) {
+              best.set(cand.obj.id, {
+                victimId: cand.obj.id,
+                victimName: cand.obj.name,
+                victimKind: cand.obj.kind,
+                minDistanceKm: d,
+                timeOffsetMin: dt / 60000,
+                altKm: Math.hypot(cand.pos.x, cand.pos.y, cand.pos.z) - EARTH_RADIUS_KM,
+              });
+            }
+          }
+        }
+  }
+
+  return [...best.values()]
+    .sort((a, b) => a.minDistanceKm - b.minDistanceKm)
+    .slice(0, opts.maxResults);
+}
+
+export async function screenConjunctionsAsync(
+  user: OrbitObject,
+  catalog: OrbitObject[],
+  startTime: Date,
+  options: Partial<ConjunctionOptions> = {}
+): Promise<Conjunction[]> {
+  await new Promise((r) => setTimeout(r, 0));
+  return screenConjunctions(user, catalog, startTime, options);
+}
+
+// Search nearby orbital slots that produce zero conjunctions within `missKm`
+// over `horizonMin`. Walks altitude ±200 km (50 km step) and RAAN ±60° (15° step).
+export function findSafeOrbitNear(
+  base: UserOrbitParams,
+  catalog: OrbitObject[],
+  startTime: Date,
+  options: { missKm?: number; horizonMin?: number } = {}
+): { params: UserOrbitParams; conjunctions: number; minMissKm: number } | null {
+  const missKm = options.missKm ?? 10;
+  const horizonMin = options.horizonMin ?? 360;
+
+  const candidates: UserOrbitParams[] = [];
+  for (const dAlt of [0, 25, -25, 50, -50, 75, -75, 100, -100, 150, -150, 200, -200]) {
+    for (const dRaan of [0, 15, -15, 30, -30, 45, -45, 60, -60]) {
+      candidates.push({
+        ...base,
+        altKm: base.altKm + dAlt,
+        raanDeg: ((base.raanDeg ?? 0) + dRaan + 360) % 360,
+      });
+    }
+  }
+
+  let bestSafe: { params: UserOrbitParams; conjunctions: number; minMissKm: number } | null = null;
+  for (const cand of candidates) {
+    const obj = buildUserOrbit(cand, startTime);
+    if (!obj) continue;
+    const conjs = screenConjunctions(obj, catalog, startTime, {
+      horizonMin,
+      missDistanceKm: missKm,
+      stepSec: 60,
+      maxResults: 5,
+    });
+    const minMiss = conjs.length === 0 ? Infinity : conjs[0].minDistanceKm;
+    if (conjs.length === 0) {
+      return { params: cand, conjunctions: 0, minMissKm: minMiss };
+    }
+    if (!bestSafe || minMiss > bestSafe.minMissKm) {
+      bestSafe = { params: cand, conjunctions: conjs.length, minMissKm: minMiss };
+    }
+  }
+  return bestSafe;
 }

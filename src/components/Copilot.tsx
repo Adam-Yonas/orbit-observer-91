@@ -11,6 +11,7 @@ interface Message {
 
 interface Props {
   catalog: OrbitObject[];
+  externalPrompt?: { text: string; nonce: number } | null;
 }
 
 const SUGGESTIONS = [
@@ -20,7 +21,7 @@ const SUGGESTIONS = [
   "Summarize the catalog",
 ];
 
-export function Copilot({ catalog }: Props) {
+export function Copilot({ catalog, externalPrompt }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -36,6 +37,13 @@ export function Copilot({ catalog }: Props) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!externalPrompt) return;
+    setOpen(true);
+    send(externalPrompt.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalPrompt?.nonce]);
 
   async function send(text: string) {
     if (!text.trim() || loading) return;

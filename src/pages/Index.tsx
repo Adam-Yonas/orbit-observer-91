@@ -7,7 +7,8 @@ import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReactionAsync } from "@/lib/orbital";
+import { LaunchPanel } from "@/components/LaunchPanel";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReactionAsync, type Conjunction } from "@/lib/orbital";
 import type { CascadeInputs } from "@/components/DetailsDrawer";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +29,9 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cascadeIds, setCascadeIds] = useState<Set<string>>(new Set());
   const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [userObject, setUserObject] = useState<OrbitObject | null>(null);
+  const [conjunctions, setConjunctions] = useState<Conjunction[]>([]);
+  const [copilotPrompt, setCopilotPrompt] = useState<{ text: string; nonce: number } | null>(null);
 
   const baseTime = useRef(new Date());
   const [offsetMin, setOffsetMin] = useState(0);
@@ -102,27 +106,37 @@ const Index = () => {
     [offsetMin]
   );
 
+  // Combined catalog including the user satellite (if any)
+  const renderedCatalog = useMemo(
+    () => (userObject ? [...catalog, userObject] : catalog),
+    [catalog, userObject]
+  );
+
   // Visible IDs based on filters
   const visibleIds = useMemo(() => {
     const set = new Set<string>();
-    catalog.forEach((o) => {
+    renderedCatalog.forEach((o) => {
+      if (o.kind === "user") {
+        set.add(o.id);
+        return;
+      }
       if (!filters[o.kind]) return;
       const mid = (o.perigeeKm + o.apogeeKm) / 2;
       if (mid < filters.altMin || mid > filters.altMax) return;
       set.add(o.id);
     });
     return set;
-  }, [catalog, filters]);
+  }, [renderedCatalog, filters]);
 
   const selectedObj = useMemo(
-    () => catalog.find((o) => o.id === selectedId) ?? null,
-    [catalog, selectedId]
+    () => renderedCatalog.find((o) => o.id === selectedId) ?? null,
+    [renderedCatalog, selectedId]
   );
 
   // Kessler cascade: spawn fragments from the chosen object's current position
   const triggerCascade = async (id: string, inputs: CascadeInputs) => {
     if (cascadeRunning) return;
-    const parent = catalog.find((o) => o.id === id);
+    const parent = renderedCatalog.find((o) => o.id === id);
     if (!parent) {
       toast.error("Could not find selected object");
       return;
@@ -257,9 +271,9 @@ const Index = () => {
 
       {/* 3D scene fills viewport */}
       <div className="absolute inset-0">
-        {catalog.length > 0 && (
+        {renderedCatalog.length > 0 && (
           <Globe
-            catalog={catalog}
+            catalog={renderedCatalog}
             visibleIds={visibleIds}
             time={time}
             selectedId={selectedId}
@@ -294,7 +308,17 @@ const Index = () => {
         playing={playing}
         setPlaying={setPlaying}
       />
-      <Copilot catalog={catalog} />
+      <LaunchPanel
+        catalog={catalog}
+        time={time}
+        userObject={userObject}
+        setUserObject={setUserObject}
+        conjunctions={conjunctions}
+        setConjunctions={setConjunctions}
+        onAskCopilot={(text) => setCopilotPrompt({ text, nonce: Date.now() })}
+        onSelect={setSelectedId}
+      />
+      <Copilot catalog={catalog} externalPrompt={copilotPrompt} />
       <AboutPanel />
     </main>
   );
