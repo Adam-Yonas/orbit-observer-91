@@ -414,15 +414,53 @@ export function spawnFragments(
       z: biasDir.z * u + (bx.z * Math.cos(phi) + by.z * Math.sin(phi)) * sinT,
     };
 
+    
     // Sample isotropic delta-v magnitude (power-law)
-    const dvMag = powerLawSample(0.02, dvScale * 2.5, -2.0);
-    const v1 = {
-      x: v0.x + dir.x * dvMag,
-      y: v0.y + dir.y * dvMag,
-      z: v0.z + dir.z * dvMag,
+    // Size-dependent delta-v:
+    // smaller fragments get larger kicks, larger fragments stay closer to the parent orbit.
+    const sizeFactor = Math.random();
+    const fragmentSizeScale = Math.pow(sizeFactor, 2.5);
+    
+    // km/s. Most fragments are slow, but some get larger energy changes.
+    const minDv = 0.005;
+    const maxDv = Math.max(0.08, dvScale * (1.5 + 4.0 * (1 - fragmentSizeScale)));
+    const dvMag = powerLawSample(minDv, maxDv, -1.7);
+    
+    // Add a small isotropic/random component so ejecta does not collapse into a single line.
+    const randomDir = randomUnitVector();
+    const isotropicMix = 0.35;
+    
+    const mixedDir = {
+      x: dir.x * (1 - isotropicMix) + randomDir.x * isotropicMix,
+      y: dir.y * (1 - isotropicMix) + randomDir.y * isotropicMix,
+      z: dir.z * (1 - isotropicMix) + randomDir.z * isotropicMix,
     };
+    
+    const mixedMag = Math.hypot(mixedDir.x, mixedDir.y, mixedDir.z) || 1;
+    mixedDir.x /= mixedMag;
+    mixedDir.y /= mixedMag;
+    mixedDir.z /= mixedMag;
+    
+    const v1 = {
+      x: v0.x + mixedDir.x * dvMag,
+      y: v0.y + mixedDir.y * dvMag,
+      z: v0.z + mixedDir.z * dvMag,
+    };
+    
+    // Small initial 3D position scatter.
+    // This prevents all fragments from rendering as if they start from the exact same point.
+    const spreadKm = 3 + Math.random() * 12;
+    const posScatter = randomUnitVector();
+    
+    const r1 = {
+      x: r0.x + posScatter.x * spreadKm,
+      y: r0.y + posScatter.y * spreadKm,
+      z: r0.z + posScatter.z * spreadKm,
+    };
+    
+    const kep = stateToKeplerian(r1, v1);
 
-    const kep = stateToKeplerian(r0, v1);
+    
     if (!kep) continue;
     if (kep.a * (1 - kep.e) < EARTH_RADIUS_KM + 120) continue; // perigee inside atmosphere
 
