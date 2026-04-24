@@ -337,6 +337,58 @@ export function spawnFragments(
     Math.min(4.0, (params.impactorMassKg / targetMass) * params.impactorVelKms)
   ); // km/s, clamped so we don't immediately escape Earth
 
+  // Build the parent's local VNC (Velocity-Normal-Co-normal) frame so the
+  // impactor direction is expressed relative to how the parent is moving.
+  //   V̂ = velocity unit vector
+  //   N̂ = (r × v) unit  (orbit normal)
+  //   Ĉ = V̂ × N̂        (completes the right-handed frame, ~radial)
+  const vMag0 = Math.hypot(v0.x, v0.y, v0.z) || 1;
+  const Vhat = { x: v0.x / vMag0, y: v0.y / vMag0, z: v0.z / vMag0 };
+  const nx = r0.y * v0.z - r0.z * v0.y;
+  const ny = r0.z * v0.x - r0.x * v0.z;
+  const nz = r0.x * v0.y - r0.y * v0.x;
+  const nMag0 = Math.hypot(nx, ny, nz) || 1;
+  const Nhat = { x: nx / nMag0, y: ny / nMag0, z: nz / nMag0 };
+  const Chat = {
+    x: Vhat.y * Nhat.z - Vhat.z * Nhat.y,
+    y: Vhat.z * Nhat.x - Vhat.x * Nhat.z,
+    z: Vhat.x * Nhat.y - Vhat.y * Nhat.x,
+  };
+
+  const dirVNC = params.impactorDirVNC ?? { v: -1, n: 0, c: 0 };
+  const dirMag = Math.hypot(dirVNC.v, dirVNC.n, dirVNC.c) || 1;
+  // Impactor velocity unit vector in ECI
+  const impactorHat = {
+    x: (dirVNC.v * Vhat.x + dirVNC.n * Nhat.x + dirVNC.c * Chat.x) / dirMag,
+    y: (dirVNC.v * Vhat.y + dirVNC.n * Nhat.y + dirVNC.c * Chat.y) / dirMag,
+    z: (dirVNC.v * Vhat.z + dirVNC.n * Nhat.z + dirVNC.c * Chat.z) / dirMag,
+  };
+
+  // Momentum-balance bias: post-impact target ΔV points along (m_i v_i + m_t v_t)
+  // minus v_t, normalized. We treat the parent as initially at rest in its own
+  // frame, so the bias direction is simply the impactor's velocity direction.
+  const biasDir = impactorHat;
+
+  // Cone half-angle (radians) for ejecta spread around the bias direction.
+  const coneDeg = Math.max(5, Math.min(180, params.ejectaConeDeg ?? 180));
+  const cosConeMin = Math.cos((coneDeg * Math.PI) / 180);
+
+  // Build an orthonormal basis around biasDir for cone sampling
+  const helper =
+    Math.abs(biasDir.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
+  const bx = {
+    x: biasDir.y * helper.z - biasDir.z * helper.y,
+    y: biasDir.z * helper.x - biasDir.x * helper.z,
+    z: biasDir.x * helper.y - biasDir.y * helper.x,
+  };
+  const bxMag = Math.hypot(bx.x, bx.y, bx.z) || 1;
+  bx.x /= bxMag; bx.y /= bxMag; bx.z /= bxMag;
+  const by = {
+    x: biasDir.y * bx.z - biasDir.z * bx.y,
+    y: biasDir.z * bx.x - biasDir.x * bx.z,
+    z: biasDir.x * bx.y - biasDir.y * bx.x,
+  };
+
   const stamp = Date.now();
   const epoch = (impactTime.getTime() - J2000) / 86400000 + 10957.5; // days since 1950-01-01 (TLE epoch)
   const epochYear = (impactTime.getUTCFullYear() % 100).toString().padStart(2, "0");
@@ -351,9 +403,18 @@ export function spawnFragments(
     attempts++;
     i++;
 
-    // Sample isotropic delta-v
+    // Sample a unit vector inside the cone around biasDir
+    const u = cosConeMin + Math.random() * (1 - cosConeMin); // cos(theta)
+    const sinT = Math.sqrt(Math.max(0, 1 - u * u));
+    const phi = Math.random() * 2 * Math.PI;
+    const dir = {
+      x: biasDir.x * u + (bx.x * Math.cos(phi) + by.x * Math.sin(phi)) * sinT,
+      y: biasDir.y * u + (bx.y * Math.cos(phi) + by.y * Math.sin(phi)) * sinT,
+      z: biasDir.z * u + (bx.z * Math.cos(phi) + by.z * Math.sin(phi)) * sinT,
+    };
+
+    // Sample isotropic delta-v magnitude (power-law)
     const dvMag = powerLawSample(0.02, dvScale * 2.5, -2.0);
-    const dir = randomUnitVector();
     const v1 = {
       x: v0.x + dir.x * dvMag,
       y: v0.y + dir.y * dvMag,
