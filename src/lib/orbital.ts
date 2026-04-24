@@ -7,6 +7,7 @@ export interface OrbitObject {
   name: string;
   kind: DebrisKind;
   country: string;
+  collisionGeneration?: number;
   // SGP4 record
   satrec: satellite.SatRec;
   // cached orbital elements (km, deg)
@@ -661,6 +662,7 @@ export function runChainReaction(
 
         secondary.forEach((s) => {
           s.risk = 1;
+          s.collisionGeneration = generation;
           fragmentIds.add(s.id);
           newFragments.push(s);
           nextGenFragments.push(s);

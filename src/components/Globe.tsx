@@ -18,6 +18,7 @@ const COLORS = {
   rocket_body: new THREE.Color("#f59e0b"),
   debris: new THREE.Color("#a78bfa"),
   cascade: new THREE.Color("#ef4444"),
+  secondaryCascade: new THREE.Color("#ec4899"),
   selected: new THREE.Color("#ffffff"),
 };
 
@@ -127,13 +128,18 @@ function DebrisCloud({
       positions[i * 3 + 1] = p.z;
       positions[i * 3 + 2] = -p.y;
 
-      if (cascadeIds.has(o.id)) {
-        const c = COLORS.cascade;
+      if (o.id === selectedId) {
+        const c = COLORS.selected;
         colors[i * 3] = c.r;
         colors[i * 3 + 1] = c.g;
         colors[i * 3 + 2] = c.b;
-      } else if (o.id === selectedId) {
-        const c = COLORS.selected;
+      } else if ((o.collisionGeneration ?? 0) > 0) {
+        const c = COLORS.secondaryCascade;
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+      } else if (cascadeIds.has(o.id)) {
+        const c = COLORS.cascade;
         colors[i * 3] = c.r;
         colors[i * 3 + 1] = c.g;
         colors[i * 3 + 2] = c.b;
