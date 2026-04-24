@@ -17,6 +17,7 @@ const COLORS = {
   payload: new THREE.Color("#22d3ee"),
   rocket_body: new THREE.Color("#f59e0b"),
   debris: new THREE.Color("#a78bfa"),
+  user: new THREE.Color("#84cc16"),
   cascade: new THREE.Color("#ef4444"),
   secondaryCascade: new THREE.Color("#ec4899"),
   selected: new THREE.Color("#ffffff"),
