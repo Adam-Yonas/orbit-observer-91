@@ -79,7 +79,7 @@ function DebrisCloud({
         colors[i * 3] = c.r;
         colors[i * 3 + 1] = c.g;
         colors[i * 3 + 2] = c.b;
-        sizes[i] = o.kind === "payload" ? 0.012 : 0.008;
+        sizes[i] = o.kind === "user" ? 0.025 : o.kind === "payload" ? 0.012 : 0.008;
       } else {
         positions[i * 3] = 1e6;
         positions[i * 3 + 1] = 1e6;
