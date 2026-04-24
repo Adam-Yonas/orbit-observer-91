@@ -7,7 +7,7 @@ import { DetailsDrawer } from "@/components/DetailsDrawer";
 import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReaction } from "@/lib/orbital";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReactionAsync } from "@/lib/orbital";
 import type { CascadeInputs } from "@/components/DetailsDrawer";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ const Index = () => {
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cascadeIds, setCascadeIds] = useState<Set<string>>(new Set());
+  const [cascadeRunning, setCascadeRunning] = useState(false);
 
   const baseTime = useRef(new Date());
   const [offsetMin, setOffsetMin] = useState(0);
@@ -119,12 +120,14 @@ const Index = () => {
   );
 
   // Kessler cascade: spawn fragments from the chosen object's current position
-  const triggerCascade = (id: string, inputs: CascadeInputs) => {
+  const triggerCascade = async (id: string, inputs: CascadeInputs) => {
+    if (cascadeRunning) return;
     const parent = catalog.find((o) => o.id === id);
     if (!parent) {
       toast.error("Could not find selected object");
       return;
     }
+    setCascadeRunning(true);
     const fragments = spawnFragments(
       parent,
       {
@@ -149,31 +152,35 @@ const Index = () => {
     let destroyedIds: string[] = [];
     let events: Array<{ victimId: string; generation: number }> = [];
 
-    if (inputs.chainEnabled) {
-      const result = runChainReaction(catalog, fragments, time, {
-        horizonMin: inputs.chainHorizonMin,
-        missDistanceKm: inputs.missDistanceKm,
-      });
-      chainFragments = result.newFragments;
-      destroyedIds = result.destroyedIds;
-      events = result.events;
-      destroyedIds.forEach((d) => newCascade.add(d));
-      chainFragments.forEach((f) => newCascade.add(f.id));
-    }
+    try {
+      if (inputs.chainEnabled) {
+        const result = await runChainReactionAsync(catalog, fragments, time, {
+          horizonMin: inputs.chainHorizonMin,
+          missDistanceKm: inputs.missDistanceKm,
+        });
+        chainFragments = result.newFragments;
+        destroyedIds = result.destroyedIds;
+        events = result.events;
+        destroyedIds.forEach((d) => newCascade.add(d));
+        chainFragments.forEach((f) => newCascade.add(f.id));
+      }
 
-    setCatalog((prev) => [...prev, ...fragments, ...chainFragments]);
-    setCascadeIds(newCascade);
+      setCatalog((prev) => [...prev, ...fragments, ...chainFragments]);
+      setCascadeIds(newCascade);
 
-    const totalFrags = fragments.length + chainFragments.length;
-    const generations = events.reduce((m, e) => Math.max(m, e.generation), 0);
-    if (events.length > 0) {
-      toast.success(
-        `Cascade: ${totalFrags} fragments · ${events.length} secondary collisions · ${generations} generation${generations === 1 ? "" : "s"}`
-      );
-    } else {
-      toast.success(
-        `Cascade: ${totalFrags} fragments · no chain hits within horizon`
-      );
+      const totalFrags = fragments.length + chainFragments.length;
+      const generations = events.reduce((m, e) => Math.max(m, e.generation), 0);
+      if (events.length > 0) {
+        toast.success(
+          `Cascade: ${totalFrags} fragments · ${events.length} secondary collisions · ${generations} generation${generations === 1 ? "" : "s"}`
+        );
+      } else {
+        toast.success(
+          `Cascade: ${totalFrags} fragments · no chain hits within horizon`
+        );
+      }
+    } finally {
+      setCascadeRunning(false);
     }
   };
 
@@ -271,6 +278,7 @@ const Index = () => {
         obj={selectedObj}
         onClose={() => setSelectedId(null)}
         onCascade={triggerCascade}
+        isCascading={cascadeRunning}
       />
       <TimeScrubber
         time={time}

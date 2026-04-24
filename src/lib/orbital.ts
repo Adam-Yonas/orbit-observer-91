@@ -509,6 +509,67 @@ function positionKm(obj: OrbitObject, date: Date): { x: number; y: number; z: nu
   return { x: p.x, y: p.y, z: p.z };
 }
 
+interface PositionedObject {
+  obj: OrbitObject;
+  pos: { x: number; y: number; z: number };
+}
+
+function cellKey(pos: { x: number; y: number; z: number }, cellSize: number) {
+  return [
+    Math.floor(pos.x / cellSize),
+    Math.floor(pos.y / cellSize),
+    Math.floor(pos.z / cellSize),
+  ].join(":");
+}
+
+function buildVictimGrid(victims: OrbitObject[], time: Date, cellSize: number) {
+  const grid = new Map<string, PositionedObject[]>();
+
+  for (const victim of victims) {
+    const pos = positionKm(victim, time);
+    if (!pos) continue;
+    const key = cellKey(pos, cellSize);
+    const bucket = grid.get(key);
+    if (bucket) bucket.push({ obj: victim, pos });
+    else grid.set(key, [{ obj: victim, pos }]);
+  }
+
+  return grid;
+}
+
+function findCollisionCandidate(
+  fragPos: { x: number; y: number; z: number },
+  grid: Map<string, PositionedObject[]>,
+  missSq: number,
+  cellSize: number,
+  blockedVictimIds: Set<string>
+) {
+  const cx = Math.floor(fragPos.x / cellSize);
+  const cy = Math.floor(fragPos.y / cellSize);
+  const cz = Math.floor(fragPos.z / cellSize);
+
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const bucket = grid.get([cx + dx, cy + dy, cz + dz].join(":"));
+        if (!bucket) continue;
+
+        for (const candidate of bucket) {
+          if (blockedVictimIds.has(candidate.obj.id)) continue;
+          const px = fragPos.x - candidate.pos.x;
+          const py = fragPos.y - candidate.pos.y;
+          const pz = fragPos.z - candidate.pos.z;
+          if (px * px + py * py + pz * pz <= missSq) {
+            return candidate;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export function runChainReaction(
   catalog: OrbitObject[],
   initialFragments: OrbitObject[],
@@ -517,18 +578,18 @@ export function runChainReaction(
 ): ChainResult {
   const opts = { ...DEFAULT_CHAIN, ...options };
   const aliveCatalog = new Map(catalog.map((o) => [o.id, o]));
-  // Don't allow fragments to "hit" their own siblings — only the surrounding
-  // background population, otherwise we get a runaway self-collision blob.
   const fragmentIds = new Set(initialFragments.map((f) => f.id));
+  const destroyedIdSet = new Set<string>();
   const destroyedIds: string[] = [];
   const events: ChainCollisionEvent[] = [];
   const newFragments: OrbitObject[] = [];
+  const missSq = opts.missDistanceKm * opts.missDistanceKm;
+  const cellSize = Math.max(opts.missDistanceKm * 2, 25);
+  const stepMs = opts.stepSec * 1000;
+  const horizonMs = opts.horizonMin * 60 * 1000;
 
   let generation = 1;
   let activeFragments = initialFragments.slice();
-  const missSq = opts.missDistanceKm * opts.missDistanceKm;
-  const stepMs = opts.stepSec * 1000;
-  const horizonMs = opts.horizonMin * 60 * 1000;
 
   while (
     generation <= opts.maxGenerations &&
@@ -536,73 +597,77 @@ export function runChainReaction(
     newFragments.length < opts.maxNewFragments
   ) {
     const nextGenFragments: OrbitObject[] = [];
+    let unresolvedFragments = activeFragments.slice();
 
-    // Pre-pick a subset of victims to keep this O(N) rather than O(N²).
-    // Only screen against alive, non-fragment catalog objects.
-    const victims = Array.from(aliveCatalog.values()).filter(
-      (o) => !fragmentIds.has(o.id) && !destroyedIds.includes(o.id)
-    );
-    if (victims.length === 0) break;
+    for (let dt = stepMs; dt <= horizonMs && unresolvedFragments.length > 0; dt += stepMs) {
+      const t = new Date(startTime.getTime() + dt);
+      const victims = Array.from(aliveCatalog.values()).filter(
+        (o) => !fragmentIds.has(o.id) && !destroyedIdSet.has(o.id)
+      );
+      if (victims.length === 0) break;
 
-    // Walk forward in time. First fragment to come within missDistanceKm of any
-    // victim wins the collision and we move to the next fragment.
-    for (const frag of activeFragments) {
-      if (newFragments.length >= opts.maxNewFragments) break;
+      const blockedVictimIds = new Set<string>();
+      const grid = buildVictimGrid(victims, t, cellSize);
+      const remainingFragments: OrbitObject[] = [];
 
-      let hit: { victim: OrbitObject; t: Date } | null = null;
-      for (let dt = stepMs; dt <= horizonMs && !hit; dt += stepMs) {
-        const t = new Date(startTime.getTime() + dt);
-        const fp = positionKm(frag, t);
-        if (!fp) continue;
-        for (const victim of victims) {
-          const vp = positionKm(victim, t);
-          if (!vp) continue;
-          const dx = fp.x - vp.x;
-          const dy = fp.y - vp.y;
-          const dz = fp.z - vp.z;
-          if (dx * dx + dy * dy + dz * dz < missSq) {
-            hit = { victim, t };
-            break;
-          }
+      for (const frag of unresolvedFragments) {
+        if (newFragments.length >= opts.maxNewFragments) break;
+
+        const fragPos = positionKm(frag, t);
+        if (!fragPos) {
+          remainingFragments.push(frag);
+          continue;
         }
+
+        const hit = findCollisionCandidate(fragPos, grid, missSq, cellSize, blockedVictimIds);
+        if (!hit) {
+          remainingFragments.push(frag);
+          continue;
+        }
+
+        const secondary = spawnFragments(
+          hit.obj,
+          {
+            count: opts.fragmentsPerHit,
+            impactorMassKg: opts.fragmentMassKg ?? 2,
+            impactorVelKms: opts.fragmentVelKms ?? 12,
+            ejectaConeDeg: 180,
+            impactorDirVNC: (() => {
+              const dir = randomUnitVector();
+              return { v: dir.x, n: dir.y, c: dir.z };
+            })(),
+          },
+          t
+        );
+
+        if (secondary.length === 0) {
+          remainingFragments.push(frag);
+          continue;
+        }
+
+        blockedVictimIds.add(hit.obj.id);
+        destroyedIdSet.add(hit.obj.id);
+        destroyedIds.push(hit.obj.id);
+        aliveCatalog.delete(hit.obj.id);
+
+        const altKm = Math.hypot(hit.pos.x, hit.pos.y, hit.pos.z) - EARTH_RADIUS_KM;
+        events.push({
+          parentId: frag.id,
+          fragmentId: frag.id,
+          victimId: hit.obj.id,
+          altKm,
+          generation,
+        });
+
+        secondary.forEach((s) => {
+          s.risk = 1;
+          fragmentIds.add(s.id);
+          newFragments.push(s);
+          nextGenFragments.push(s);
+        });
       }
 
-      if (!hit) continue;
-
-      // Secondary breakup — smaller momentum coupling than the primary.
-      const secondary = spawnFragments(
-        hit.victim,
-        {
-          count: opts.fragmentsPerHit,
-          impactorMassKg: opts.fragmentMassKg ?? 2,
-          impactorVelKms: opts.fragmentVelKms ?? 12,
-          ejectaConeDeg: 180,
-        },
-        hit.t
-      );
-      if (secondary.length === 0) continue;
-
-      destroyedIds.push(hit.victim.id);
-      aliveCatalog.delete(hit.victim.id);
-      const altKm =
-        Math.hypot(
-          ...(["x", "y", "z"] as const).map(
-            (k) => (positionKm(hit!.victim, hit!.t) ?? { x: 0, y: 0, z: 0 })[k]
-          )
-        ) - EARTH_RADIUS_KM;
-      events.push({
-        parentId: frag.id,
-        fragmentId: frag.id,
-        victimId: hit.victim.id,
-        altKm,
-        generation,
-      });
-      secondary.forEach((s) => {
-        s.risk = 1;
-        fragmentIds.add(s.id);
-        newFragments.push(s);
-        nextGenFragments.push(s);
-      });
+      unresolvedFragments = remainingFragments;
     }
 
     activeFragments = nextGenFragments;
@@ -610,6 +675,16 @@ export function runChainReaction(
   }
 
   return { newFragments, destroyedIds, events };
+}
+
+export async function runChainReactionAsync(
+  catalog: OrbitObject[],
+  initialFragments: OrbitObject[],
+  startTime: Date,
+  options: Partial<ChainOptions> = {}
+) {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return runChainReaction(catalog, initialFragments, startTime, options);
 }
 
 // Build an OrbitObject from a raw TLE pair coming from CelesTrak

@@ -23,6 +23,7 @@ interface Props {
   obj: OrbitObject | null;
   onClose: () => void;
   onCascade: (id: string, inputs: CascadeInputs) => void;
+  isCascading: boolean;
 }
 
 const DIRECTION_PRESETS: Array<{
@@ -39,7 +40,7 @@ const DIRECTION_PRESETS: Array<{
   { label: "Oblique", desc: "45° head-on + cross", v: -0.7, n: 0.7, c: 0 },
 ];
 
-export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
+export function DetailsDrawer({ obj, onClose, onCascade, isCascading }: Props) {
   const [count, setCount] = useState(80);
   const [mass, setMass] = useState(100);
   const [vel, setVel] = useState(10);
@@ -236,6 +237,7 @@ export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
           <Button
             variant="destructive"
             className="w-full mt-2"
+            disabled={isCascading}
             onClick={() =>
               onCascade(obj.id, {
                 count,
@@ -251,7 +253,7 @@ export function DetailsDrawer({ obj, onClose, onCascade }: Props) {
               })
             }
           >
-            Trigger Kessler Cascade
+            {isCascading ? "Running cascade…" : "Trigger Kessler Cascade"}
           </Button>
           <p className="text-xs text-muted-foreground leading-relaxed">
             Fragments inherit the parent's state vector at impact, then receive a
