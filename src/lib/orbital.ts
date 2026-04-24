@@ -185,6 +185,23 @@ export interface CascadeParams {
   impactorMassKg: number;   // mass of striking object
   impactorVelKms: number;   // relative impact velocity (km/s)
   targetMassKg?: number;    // optional override for parent mass
+  // Impactor approach direction in the parent's local Velocity / Normal / Co-normal
+  // (VNC) frame. Each component is a fraction of the impactor velocity vector
+  // along that axis. Defaults to a head-on retrograde hit (-1, 0, 0).
+  // V = along parent velocity, N = orbit normal, C = radial (out from Earth).
+  impactorDirVNC?: { v: number; n: number; c: number };
+  // Cone half-angle (deg) around the post-collision momentum vector that the
+  // ejecta is biased into. 180 = fully isotropic (default); smaller values
+  // produce a focused debris jet in the direction of the impact.
+  ejectaConeDeg?: number;
+}
+
+export interface ChainCollisionEvent {
+  parentId: string;
+  fragmentId: string;
+  victimId: string;
+  altKm: number;
+  generation: number;
 }
 
 const J2000 = new Date(Date.UTC(2000, 0, 1, 12, 0, 0)).getTime();
@@ -320,6 +337,58 @@ export function spawnFragments(
     Math.min(4.0, (params.impactorMassKg / targetMass) * params.impactorVelKms)
   ); // km/s, clamped so we don't immediately escape Earth
 
+  // Build the parent's local VNC (Velocity-Normal-Co-normal) frame so the
+  // impactor direction is expressed relative to how the parent is moving.
+  //   V̂ = velocity unit vector
+  //   N̂ = (r × v) unit  (orbit normal)
+  //   Ĉ = V̂ × N̂        (completes the right-handed frame, ~radial)
+  const vMag0 = Math.hypot(v0.x, v0.y, v0.z) || 1;
+  const Vhat = { x: v0.x / vMag0, y: v0.y / vMag0, z: v0.z / vMag0 };
+  const nx = r0.y * v0.z - r0.z * v0.y;
+  const ny = r0.z * v0.x - r0.x * v0.z;
+  const nz = r0.x * v0.y - r0.y * v0.x;
+  const nMag0 = Math.hypot(nx, ny, nz) || 1;
+  const Nhat = { x: nx / nMag0, y: ny / nMag0, z: nz / nMag0 };
+  const Chat = {
+    x: Vhat.y * Nhat.z - Vhat.z * Nhat.y,
+    y: Vhat.z * Nhat.x - Vhat.x * Nhat.z,
+    z: Vhat.x * Nhat.y - Vhat.y * Nhat.x,
+  };
+
+  const dirVNC = params.impactorDirVNC ?? { v: -1, n: 0, c: 0 };
+  const dirMag = Math.hypot(dirVNC.v, dirVNC.n, dirVNC.c) || 1;
+  // Impactor velocity unit vector in ECI
+  const impactorHat = {
+    x: (dirVNC.v * Vhat.x + dirVNC.n * Nhat.x + dirVNC.c * Chat.x) / dirMag,
+    y: (dirVNC.v * Vhat.y + dirVNC.n * Nhat.y + dirVNC.c * Chat.y) / dirMag,
+    z: (dirVNC.v * Vhat.z + dirVNC.n * Nhat.z + dirVNC.c * Chat.z) / dirMag,
+  };
+
+  // Momentum-balance bias: post-impact target ΔV points along (m_i v_i + m_t v_t)
+  // minus v_t, normalized. We treat the parent as initially at rest in its own
+  // frame, so the bias direction is simply the impactor's velocity direction.
+  const biasDir = impactorHat;
+
+  // Cone half-angle (radians) for ejecta spread around the bias direction.
+  const coneDeg = Math.max(5, Math.min(180, params.ejectaConeDeg ?? 180));
+  const cosConeMin = Math.cos((coneDeg * Math.PI) / 180);
+
+  // Build an orthonormal basis around biasDir for cone sampling
+  const helper =
+    Math.abs(biasDir.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
+  const bx = {
+    x: biasDir.y * helper.z - biasDir.z * helper.y,
+    y: biasDir.z * helper.x - biasDir.x * helper.z,
+    z: biasDir.x * helper.y - biasDir.y * helper.x,
+  };
+  const bxMag = Math.hypot(bx.x, bx.y, bx.z) || 1;
+  bx.x /= bxMag; bx.y /= bxMag; bx.z /= bxMag;
+  const by = {
+    x: biasDir.y * bx.z - biasDir.z * bx.y,
+    y: biasDir.z * bx.x - biasDir.x * bx.z,
+    z: biasDir.x * bx.y - biasDir.y * bx.x,
+  };
+
   const stamp = Date.now();
   const epoch = (impactTime.getTime() - J2000) / 86400000 + 10957.5; // days since 1950-01-01 (TLE epoch)
   const epochYear = (impactTime.getUTCFullYear() % 100).toString().padStart(2, "0");
@@ -334,9 +403,18 @@ export function spawnFragments(
     attempts++;
     i++;
 
-    // Sample isotropic delta-v
+    // Sample a unit vector inside the cone around biasDir
+    const u = cosConeMin + Math.random() * (1 - cosConeMin); // cos(theta)
+    const sinT = Math.sqrt(Math.max(0, 1 - u * u));
+    const phi = Math.random() * 2 * Math.PI;
+    const dir = {
+      x: biasDir.x * u + (bx.x * Math.cos(phi) + by.x * Math.sin(phi)) * sinT,
+      y: biasDir.y * u + (bx.y * Math.cos(phi) + by.y * Math.sin(phi)) * sinT,
+      z: biasDir.z * u + (bx.z * Math.cos(phi) + by.z * Math.sin(phi)) * sinT,
+    };
+
+    // Sample isotropic delta-v magnitude (power-law)
     const dvMag = powerLawSample(0.02, dvScale * 2.5, -2.0);
-    const dir = randomUnitVector();
     const v1 = {
       x: v0.x + dir.x * dvMag,
       y: v0.y + dir.y * dvMag,
@@ -383,6 +461,155 @@ export function spawnFragments(
     out.push(obj);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Chain-reaction conjunction screening
+// ---------------------------------------------------------------------------
+// After a breakup we step the simulation forward in coarse intervals and check
+// whether any new fragment passes within a chosen miss-distance of another
+// catalog object. Each hit shatters the victim using a smaller secondary event
+// (less momentum than the user-defined primary impact). This is what makes a
+// real Kessler scenario "cascade" — one breakup seeds the next.
+
+export interface ChainOptions {
+  horizonMin: number;          // how far forward (sim minutes) to screen
+  stepSec: number;             // sampling step size (seconds)
+  missDistanceKm: number;      // Euclidean distance counted as a hit
+  maxGenerations: number;      // recursion depth cap
+  maxNewFragments: number;     // safety cap to keep render stable
+  fragmentsPerHit: number;     // fragments produced by each secondary breakup
+  fragmentMassKg?: number;     // assumed mass of a fragment striking a target
+  fragmentVelKms?: number;     // assumed relative velocity at secondary impact
+}
+
+export interface ChainResult {
+  newFragments: OrbitObject[];
+  destroyedIds: string[];
+  events: ChainCollisionEvent[];
+}
+
+const DEFAULT_CHAIN: ChainOptions = {
+  horizonMin: 90,
+  stepSec: 30,
+  missDistanceKm: 5,
+  maxGenerations: 3,
+  maxNewFragments: 600,
+  fragmentsPerHit: 30,
+  fragmentMassKg: 2,
+  fragmentVelKms: 12,
+};
+
+// Quick ECI position in km (no normalization) at a specific time.
+function positionKm(obj: OrbitObject, date: Date): { x: number; y: number; z: number } | null {
+  const pv = satellite.propagate(obj.satrec, date);
+  if (!pv || !pv.position || typeof pv.position === "boolean") return null;
+  const p = pv.position as satellite.EciVec3<number>;
+  if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) return null;
+  return { x: p.x, y: p.y, z: p.z };
+}
+
+export function runChainReaction(
+  catalog: OrbitObject[],
+  initialFragments: OrbitObject[],
+  startTime: Date,
+  options: Partial<ChainOptions> = {}
+): ChainResult {
+  const opts = { ...DEFAULT_CHAIN, ...options };
+  const aliveCatalog = new Map(catalog.map((o) => [o.id, o]));
+  // Don't allow fragments to "hit" their own siblings — only the surrounding
+  // background population, otherwise we get a runaway self-collision blob.
+  const fragmentIds = new Set(initialFragments.map((f) => f.id));
+  const destroyedIds: string[] = [];
+  const events: ChainCollisionEvent[] = [];
+  const newFragments: OrbitObject[] = [];
+
+  let generation = 1;
+  let activeFragments = initialFragments.slice();
+  const missSq = opts.missDistanceKm * opts.missDistanceKm;
+  const stepMs = opts.stepSec * 1000;
+  const horizonMs = opts.horizonMin * 60 * 1000;
+
+  while (
+    generation <= opts.maxGenerations &&
+    activeFragments.length > 0 &&
+    newFragments.length < opts.maxNewFragments
+  ) {
+    const nextGenFragments: OrbitObject[] = [];
+
+    // Pre-pick a subset of victims to keep this O(N) rather than O(N²).
+    // Only screen against alive, non-fragment catalog objects.
+    const victims = Array.from(aliveCatalog.values()).filter(
+      (o) => !fragmentIds.has(o.id) && !destroyedIds.includes(o.id)
+    );
+    if (victims.length === 0) break;
+
+    // Walk forward in time. First fragment to come within missDistanceKm of any
+    // victim wins the collision and we move to the next fragment.
+    for (const frag of activeFragments) {
+      if (newFragments.length >= opts.maxNewFragments) break;
+
+      let hit: { victim: OrbitObject; t: Date } | null = null;
+      for (let dt = stepMs; dt <= horizonMs && !hit; dt += stepMs) {
+        const t = new Date(startTime.getTime() + dt);
+        const fp = positionKm(frag, t);
+        if (!fp) continue;
+        for (const victim of victims) {
+          const vp = positionKm(victim, t);
+          if (!vp) continue;
+          const dx = fp.x - vp.x;
+          const dy = fp.y - vp.y;
+          const dz = fp.z - vp.z;
+          if (dx * dx + dy * dy + dz * dz < missSq) {
+            hit = { victim, t };
+            break;
+          }
+        }
+      }
+
+      if (!hit) continue;
+
+      // Secondary breakup — smaller momentum coupling than the primary.
+      const secondary = spawnFragments(
+        hit.victim,
+        {
+          count: opts.fragmentsPerHit,
+          impactorMassKg: opts.fragmentMassKg ?? 2,
+          impactorVelKms: opts.fragmentVelKms ?? 12,
+          ejectaConeDeg: 180,
+        },
+        hit.t
+      );
+      if (secondary.length === 0) continue;
+
+      destroyedIds.push(hit.victim.id);
+      aliveCatalog.delete(hit.victim.id);
+      const altKm =
+        Math.hypot(
+          ...(["x", "y", "z"] as const).map(
+            (k) => (positionKm(hit!.victim, hit!.t) ?? { x: 0, y: 0, z: 0 })[k]
+          )
+        ) - EARTH_RADIUS_KM;
+      events.push({
+        parentId: frag.id,
+        fragmentId: frag.id,
+        victimId: hit.victim.id,
+        altKm,
+        generation,
+      });
+      secondary.forEach((s) => {
+        s.risk = 1;
+        fragmentIds.add(s.id);
+        newFragments.push(s);
+        nextGenFragments.push(s);
+      });
+    }
+
+    activeFragments = nextGenFragments;
+    generation++;
+  }
+
+  return { newFragments, destroyedIds, events };
 }
 
 // Build an OrbitObject from a raw TLE pair coming from CelesTrak
