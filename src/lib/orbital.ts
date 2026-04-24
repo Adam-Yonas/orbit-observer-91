@@ -632,7 +632,10 @@ export function runChainReaction(
             impactorMassKg: opts.fragmentMassKg ?? 2,
             impactorVelKms: opts.fragmentVelKms ?? 12,
             ejectaConeDeg: 180,
-            impactorDirVNC: randomUnitVector(),
+            impactorDirVNC: (() => {
+              const dir = randomUnitVector();
+              return { v: dir.x, n: dir.y, c: dir.z };
+            })(),
           },
           t
         );
