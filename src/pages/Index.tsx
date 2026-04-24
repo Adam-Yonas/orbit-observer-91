@@ -29,6 +29,9 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cascadeIds, setCascadeIds] = useState<Set<string>>(new Set());
   const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [userObject, setUserObject] = useState<OrbitObject | null>(null);
+  const [conjunctions, setConjunctions] = useState<Conjunction[]>([]);
+  const [copilotPrompt, setCopilotPrompt] = useState<{ text: string; nonce: number } | null>(null);
 
   const baseTime = useRef(new Date());
   const [offsetMin, setOffsetMin] = useState(0);
