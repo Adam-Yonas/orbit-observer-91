@@ -280,9 +280,6 @@ const API_BASE = "http://127.0.0.1:8000";
 Frontend:  
 https://adam-yonas.github.io/orbit-observer-91/
 
-Backend:  
-https://space-debris-dashboard.onrender.com/health
-
 ---
 
 ## How to Use
