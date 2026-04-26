@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
+const API_BASE = "https://space-debris-dashboard.onrender.com";
+
 const queryClient = new QueryClient();
 
 const App = () => (
