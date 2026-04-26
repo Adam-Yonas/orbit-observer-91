@@ -1,4 +1,5 @@
 import * as satellite from "satellite.js";
+import { BACKEND_URL } from "./backend";
 
 export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
