@@ -68,14 +68,32 @@ export function Copilot({ catalog, externalPrompt }: Props) {
         risk: o.risk,
       }));
 
-      const { data, error } = await supabase.functions.invoke("copilot", {
-        body: {
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-          catalog: slim,
-        },
-      });
+      let data: { reply?: string; tool_trace?: { content: string }[]; error?: string };
 
-      if (error) throw error;
+      if (USING_CUSTOM_BACKEND && BACKEND_URL) {
+        // Self-hosted Python backend
+        const resp = await fetch(`${BACKEND_URL}/copilot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: next.map((m) => ({ role: m.role, content: m.content })),
+            catalog: slim,
+          }),
+        });
+        if (!resp.ok) throw new Error(`Backend ${resp.status}: ${await resp.text()}`);
+        data = await resp.json();
+      } else {
+        // Lovable Cloud edge function
+        const result = await supabase.functions.invoke("copilot", {
+          body: {
+            messages: next.map((m) => ({ role: m.role, content: m.content })),
+            catalog: slim,
+          },
+        });
+        if (result.error) throw result.error;
+        data = result.data;
+      }
+
       if (data?.error) throw new Error(data.error);
 
       const tools: string[] = (data?.tool_trace ?? [])
