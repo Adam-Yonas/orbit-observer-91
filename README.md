@@ -2,41 +2,57 @@
 
 ## Problem Statement
 
-Modern systems generate large volumes of dynamic, time-evolving data, but most tools fail to make that data interpretable or actionable.
+Modern products increasingly rely on large volumes of dynamic, time-dependent data, yet most interfaces fail to make that data actionable.
 
-In the context of space operations, satellite operators must reason about:
+Users are often forced to:
+- manually interpret complex system states
+- navigate multiple tools to understand risk
+- make decisions without clear forward projections
+
+This creates a gap between **data availability** and **decision-making ability**.
+
+In the context of orbital systems, operators must reason about:
 - thousands of moving objects
-- evolving collision risk
-- cascading failure scenarios (Kessler Syndrome)
+- continuously evolving spatial relationships
+- collision risk that changes over time
 
-This problem extends beyond aerospace. Many industries face similar challenges:
-- understanding complex systems over time
-- identifying risk before it becomes failure
-- translating raw data into decisions
+However, this challenge is not unique to aerospace. Similar problems exist in:
+- logistics (routing under uncertainty)
+- finance (risk exposure over time)
+- infrastructure systems (failure propagation)
 
-The primary users affected are:
-- satellite operators
-- mission planners
-- analysts working with dynamic systems
+The core problem is:
+> How do we help users understand and act on complex, evolving systems in real time?
 
-If solved, users would be able to:
-- understand system state instantly
-- simulate future scenarios
-- make informed decisions under uncertainty
+### Users
 
-Success would mean:
-- faster identification of high-risk configurations
-- ability to test “what-if” scenarios interactively
-- reduced cognitive load when interpreting complex systems
+- analysts working with dynamic datasets  
+- operators managing risk-sensitive systems  
+- planners exploring future scenarios  
+
+### Desired Outcome
+
+Users should be able to:
+- understand system state instantly  
+- simulate future scenarios  
+- make decisions without manual analysis  
+
+### Success Criteria
+
+- reduced time to identify risk  
+- ability to run “what-if” scenarios interactively  
+- clearer mental model of system behavior  
 
 ---
 
 ## Solution Overview
 
-Orbital Watch is an interactive platform that combines:
-- real-time orbital data visualization
-- simulation of collision cascades
-- an AI-assisted interface for reasoning about system behavior
+Orbital Watch is an interactive platform that transforms complex system data into an explorable, decision-support interface.
+
+It combines:
+- real-time data visualization  
+- forward simulation  
+- AI-assisted interaction  
 
 ### Key Features
 
@@ -46,60 +62,37 @@ Orbital Watch is an interactive platform that combines:
 - Kessler-style cascade simulation with fragment propagation  
 - AI Copilot interface for natural language interaction  
 
-### Role of AI
-
-AI acts as an interpretation layer that converts user intent into structured system actions.
-
-It enables users to interact with the system using natural language instead of manual parameter tuning.
-
-Without AI, the system would require:
-- manual configuration  
-- domain expertise  
-- multiple UI interactions  
-
-With AI, the system becomes:
-- faster to use  
-- easier to explore  
-- more accessible to non-experts  
-
 ---
 
 ## AI Integration
 
-The current implementation uses a lightweight deterministic AI layer instead of a full LLM.
+AI acts as an interpretation layer between user intent and system behavior.
 
-### Design Choices
+Instead of requiring manual parameter tuning, users can express goals in natural language, which are translated into structured actions.
 
-- Local heuristic model instead of external LLM APIs  
-- Deterministic outputs for reliability  
-- Designed for future extension into:
-  - LLM-based planning  
-  - tool-calling systems  
-  - multi-step reasoning pipelines  
+### Design Approach
 
-### Patterns Used
-
+- Deterministic local model (no external LLM dependency)  
 - Intent → structured mapping  
 - Constraint-based reasoning  
-- System-aware recommendations  
 
 ### Tradeoffs
 
-- Chose reliability and latency over LLM flexibility  
-- Avoided API cost and rate limits  
+- Prioritized reliability and latency over LLM flexibility  
+- Avoided API costs and rate limits  
 - Reduced hallucination risk  
 
-### Where AI Worked Well
+### Where AI Works Well
 
-- Simplified user interaction significantly  
-- Enabled rapid scenario exploration  
-- Reduced need for manual parameter tuning  
+- simplifies interaction with complex systems  
+- enables rapid exploration of scenarios  
+- reduces need for domain expertise  
 
-### Where AI Fell Short
+### Limitations
 
-- Limited ability to perform deep optimization  
-- No long-horizon planning  
-- Lacks probabilistic reasoning  
+- limited optimization capability  
+- no long-horizon planning  
+- lacks probabilistic reasoning  
 
 ---
 
@@ -109,89 +102,105 @@ The current implementation uses a lightweight deterministic AI layer instead of 
 
 Frontend (React + Vite + Plotly)  
 ↓  
-Backend (FastAPI on Render)  
+Backend (FastAPI)  
 ↓  
-Data (CelesTrak TLE + synthetic simulation)
+Data (CelesTrak TLE + simulation layer)
 
-### Key Design Decisions
+---
 
-- Used SGP4 for realistic orbit propagation  
-- Implemented cascade simulation using heuristic delta-v distribution  
-- Used discrete timestep collision detection for performance  
-- Hosted frontend on GitHub Pages and backend on Render  
+### Key Decisions
+
+- SGP4 used for orbit propagation (realistic baseline physics)  
+- Discrete timestep screening for performance  
+- Heuristic fragment generation for real-time cascade simulation  
+- Separation of frontend (GitHub Pages) and backend (Render)
+
+---
 
 ### Tradeoffs
 
-- Prioritized interactivity over physical accuracy  
-- Used synthetic fragment generation instead of NASA breakup models  
-- Chose simple backend API for extensibility  
+- prioritized interactivity over full physical accuracy  
+- used synthetic breakup modeling instead of NASA-standard models  
+- optimized for responsiveness over precision  
 
 ---
 
 ## Development with AI Tools
 
-This project was built using AI-assisted development tools, primarily Cursor and Lovable, to accelerate both implementation and iteration.
+This project was built using AI-assisted tools, primarily Cursor and Lovable.
 
-### Cursor (Primary Development Environment)
+### Cursor (Primary Development)
 
-Cursor was used to:
-- scaffold React components and FastAPI endpoints  
-- debug frontend-backend integration issues  
-- fix runtime errors (React hooks, routing, API calls)  
-- refactor and clean up code structure  
+Used for:
+- building React and FastAPI components  
+- debugging frontend/backend integration  
+- fixing runtime issues (hooks, routing, API calls)  
+- accelerating iteration  
 
-It was especially helpful for:
-- rapid iteration  
-- resolving deployment issues (GitHub Pages + Render)  
-- reducing time spent on boilerplate  
+Strengths:
+- rapid code generation  
+- debugging assistance  
+- reduced boilerplate  
 
 Limitations:
-- occasional incorrect assumptions about React lifecycle rules  
+- incorrect assumptions about React lifecycle  
 - incomplete edge case handling  
-- required manual validation of generated logic  
+- required manual validation  
 
 Workflow:
-1. generate solution  
-2. test locally  
-3. refine manually  
+1. generate  
+2. test  
+3. refine  
 
 ---
 
-### Lovable (UI + System Enhancement)
+### Lovable (UI + Enhancement)
 
-Lovable was used to:
-- accelerate UI structure and layout  
-- improve component quality and styling  
-- prototype interactive features quickly  
-- enhance overall user experience  
+Used for:
+- accelerating UI layout and structure  
+- improving component quality  
+- prototyping interactive features  
 
-It enabled faster iteration on:
-- dashboard layout  
-- control panels and filters  
-- interaction design  
+Strengths:
+- faster UI iteration  
+- improved visual polish  
+- rapid prototyping  
 
 Limitations:
-- required restructuring to fit final architecture  
-- some generated logic needed replacement  
-- not all outputs were production-ready  
+- required restructuring for production  
+- some generated logic replaced manually  
 
 ---
 
 ### Combined Impact
 
-Using Cursor and Lovable together:
 - significantly reduced development time  
-- enabled rapid iteration  
-- allowed focus on system design over boilerplate  
+- enabled faster iteration cycles  
+- shifted focus toward system design  
 
-AI acted as a **force multiplier**, but required:
-- careful validation  
-- manual debugging  
-- strong engineering judgment  
+AI acted as a **force multiplier**, not a replacement for engineering judgment.
 
 ---
 
-## Getting Started / Setup Instructions
+## Local vs Deployed Usage
+
+This project can be run fully locally.
+
+### Local
+
+- frontend → Vite (localhost:5173)  
+- backend → FastAPI (localhost:8000)  
+
+### Deployed
+
+- frontend → GitHub Pages  
+- backend → Render  
+
+No external services are required for local execution.
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
@@ -201,7 +210,7 @@ AI acted as a **force multiplier**, but required:
 
 ---
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/Adam-Yonas/orbit-observer-91.git
@@ -210,7 +219,7 @@ cd orbit-observer-91
 
 ---
 
-### 2. Install frontend dependencies
+### 2. Install frontend
 
 ```bash
 npm install
@@ -218,13 +227,11 @@ npm install
 
 ---
 
-### 3. Start the frontend
+### 3. Run frontend
 
 ```bash
 npm run dev
 ```
-
-Frontend:
 
 ```
 http://localhost:5173
@@ -232,15 +239,13 @@ http://localhost:5173
 
 ---
 
-### 4. Run the backend
+### 4. Run backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
-
-Backend:
 
 ```
 http://127.0.0.1:8000
@@ -253,8 +258,6 @@ http://127.0.0.1:8000
 ```bash
 curl http://127.0.0.1:8000/health
 ```
-
-Expected:
 
 ```json
 {"status": "ok"}
@@ -274,51 +277,96 @@ const API_BASE = "http://127.0.0.1:8000";
 
 ## Demo
 
-Live site:
-
+Frontend:  
 https://adam-yonas.github.io/orbit-observer-91/
 
-### How to Use
+Backend:  
+https://space-debris-dashboard.onrender.com/health
 
-- Toggle object classes (payloads, debris, rocket bodies)  
-- Adjust altitude filters  
-- Launch a simulated satellite  
-- Trigger a cascade event  
-- Observe fragment propagation  
-- Use AI Copilot for scenario input  
+---
+
+## How to Use
+
+### Explore the System
+
+- toggle object types  
+- adjust altitude filters  
+
+**Shows:** system density and congestion patterns  
+
+---
+
+### Launch a Satellite
+
+- configure orbit parameters  
+- click "Launch & Screen"  
+
+**Shows:** how orbit choices affect exposure  
+
+---
+
+### Analyze Risk
+
+- review conjunction alerts  
+- inspect miss distance and timing  
+
+**Shows:** how proximity evolves over time  
+
+---
+
+### Trigger Cascade
+
+- select object  
+- adjust collision parameters  
+- run cascade  
+
+**Shows:** how fragmentation propagates risk  
+
+---
+
+### Adjust Simulation
+
+- screening horizon  
+- miss distance  
+- fragment count  
+
+**Shows:** sensitivity of outcomes to assumptions  
+
+---
+
+### Use AI Copilot
+
+- input goals in natural language  
+
+**Shows:** abstraction of complex system control  
 
 ---
 
 ## Testing / Error Handling
 
-- Backend includes `/health` endpoint for validation  
-- Frontend handles API failures gracefully  
-- Cascade simulation includes:
-  - fragment limits  
-  - generation caps  
-  - fallback propagation  
-
-Edge cases considered:
-- invalid TLE data  
-- propagation failures  
-- excessive fragment growth  
+- `/health` endpoint for backend validation  
+- graceful frontend API fallback  
+- limits on fragment growth  
+- handling for invalid or missing data  
 
 ---
 
-## Future Improvements
+## Future Work
 
 - probabilistic collision modeling  
 - improved breakup physics  
 - persistent simulations  
-- full LLM-based planning system  
+- full LLM-based planning  
 - backend-driven risk scoring  
 
 ---
 
-## Application Links
+## Summary
 
-Frontend:
-https://adam-yonas.github.io/orbit-observer-91/
+Orbital Watch demonstrates how to:
 
-Backend:
-https://space-debris-dashboard.onrender.com/health
+- transform complex, dynamic data into an interactive system  
+- simulate future states of a system  
+- integrate AI to simplify decision-making  
+
+The approach generalizes beyond aerospace to any domain involving evolving data and uncertainty.
