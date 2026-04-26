@@ -759,8 +759,6 @@ export async function fetchLiveCatalog(
   groups: string[] = ["active", "iridium-33-debris", "cosmos-1408-debris"],
   backendUrlOverride?: string
 ): Promise<OrbitObject[]> {
-  // Lazy import to keep this module tree-shakeable for tests.
-  const { BACKEND_URL } = await import("./backend");
   const base = backendUrlOverride ?? BACKEND_URL;
   if (!base) throw new Error("No backend configured (set VITE_BACKEND_URL or VITE_SUPABASE_URL)");
 
