@@ -17,7 +17,7 @@ const COLORS = {
   payload: new THREE.Color("#22d3ee"),
   rocket_body: new THREE.Color("#f59e0b"),
   debris: new THREE.Color("#a78bfa"),
-  user: new THREE.Color("#84cc16"),
+  user: new THREE.Color("#00ff44"), // bright green for launch-sim object
   cascade: new THREE.Color("#ef4444"),
   secondaryCascade: new THREE.Color("#ec4899"),
   selected: new THREE.Color("#ffffff"),
@@ -208,6 +208,79 @@ function DebrisCloud({
   );
 }
 
+// Render "user" kind objects as a separate, larger, brighter overlay so the
+// launch-sim point is visually 2× the size of regular catalog points.
+function UserObjects({
+  catalog,
+  visibleIds,
+  time,
+}: {
+  catalog: OrbitObject[];
+  visibleIds: Set<string>;
+  time: Date;
+}) {
+  const userObjs = useMemo(
+    () => catalog.filter((o) => o.kind === "user"),
+    [catalog]
+  );
+  const MAX_USER = 32;
+  const positions = useMemo(() => new Float32Array(MAX_USER * 3), []);
+  const ref = useRef<THREE.Points>(null);
+
+  useFrame(() => {
+    for (let i = 0; i < MAX_USER; i++) {
+      const o = userObjs[i];
+      if (!o || !visibleIds.has(o.id)) {
+        positions[i * 3] = 1e6;
+        positions[i * 3 + 1] = 1e6;
+        positions[i * 3 + 2] = 1e6;
+        continue;
+      }
+      let p;
+      try {
+        p = propagate(o, time);
+      } catch {
+        p = null;
+      }
+      if (!p || !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) {
+        positions[i * 3] = 1e6;
+        positions[i * 3 + 1] = 1e6;
+        positions[i * 3 + 2] = 1e6;
+        continue;
+      }
+      positions[i * 3] = p.x;
+      positions[i * 3 + 1] = p.z;
+      positions[i * 3 + 2] = -p.y;
+    }
+    if (ref.current) {
+      (ref.current.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    }
+  });
+
+  if (userObjs.length === 0) return null;
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={MAX_USER}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.036}
+        color="#00ff44"
+        sizeAttenuation
+        transparent
+        opacity={1}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
 export function Globe(props: GlobeProps) {
   return (
     <Canvas
@@ -221,6 +294,7 @@ export function Globe(props: GlobeProps) {
       <Stars radius={50} depth={50} count={3000} factor={3} fade speed={0.5} />
       <Earth />
       <DebrisCloud {...props} />
+      <UserObjects catalog={props.catalog} visibleIds={props.visibleIds} time={props.time} />
       <OrbitControls
         enablePan={false}
         minDistance={1.6}

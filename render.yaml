@@ -3,13 +3,15 @@
 services:
   - type: web
     name: orbital-watch-backend
-    runtime: python
+    env: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: ALLOWED_ORIGINS
         value: "*"   # tighten this to your frontend URL in production
       - key: LOVABLE_API_KEY
