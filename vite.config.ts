@@ -4,7 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => ({
-  base: "/orbit-observer-91/",
+  // For GitHub Pages, set VITE_BASE_PATH="/<repo-name>/" in the workflow.
+  // Defaults to "/" so local dev and custom hosting work out of the box.
+  base: process.env.VITE_BASE_PATH ?? "/",
   server: {
     host: "::",
     port: 8080,
@@ -25,5 +27,8 @@ export default defineConfig(({ mode }) => ({
       "@tanstack/react-query",
       "@tanstack/query-core",
     ],
+  },
+  build: {
+    outDir: "dist",
   },
 }));
