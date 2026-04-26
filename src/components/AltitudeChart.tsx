@@ -36,7 +36,7 @@ export function AltitudeChart({ catalog, visibleIds }: Props) {
   }, [catalog, visibleIds]);
 
   return (
-    <div className="absolute right-4 bottom-20 w-80 panel rounded-lg p-4 z-10 hidden md:block">
+    <div className="absolute right-4 bottom-40 w-80 panel rounded-lg p-4 z-10 hidden md:block">
       <div className="text-xs font-mono text-primary uppercase tracking-wider mb-2">
         Altitude Density (km)
       </div>
