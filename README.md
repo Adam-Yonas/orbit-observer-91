@@ -54,12 +54,42 @@ Browser ──▶ /functions/fetch-tle ──▶ CelesTrak (cached 6h in Postgre
 
 ## Run locally
 
+Frontend:
+
 ```bash
 bun install
 bun run dev
 ```
 
-The Supabase URL & anon key are auto-injected by Lovable Cloud — no manual env setup needed.
+Backend (self-hosted Python — see `backend/README.md` for full docs):
+
+```bash
+cd backend
+pip install -r requirements.txt
+export LOVABLE_API_KEY=...   # or GEMINI_API_KEY
+uvicorn app:app --reload --port 8000
+```
+
+Then point the frontend at it:
+
+```bash
+echo 'VITE_BACKEND_URL=http://localhost:8000' >> .env.local
+bun run dev
+```
+
+If `VITE_BACKEND_URL` is unset the frontend falls back to the Lovable Cloud
+edge functions (auto-injected `VITE_SUPABASE_URL`).
+
+## Deploy
+
+- **Backend → Render**: push to GitHub, point Render at the repo, the
+  included `render.yaml` provisions the service. Add `LOVABLE_API_KEY` (or
+  `GEMINI_API_KEY`) and `ALLOWED_ORIGINS` in the Render dashboard.
+- **Frontend → GitHub Pages**: the workflow in `.github/workflows/deploy.yml`
+  builds and deploys on every push to `main`. Set repo variable
+  `VITE_BACKEND_URL` (Settings → Secrets and variables → Actions →
+  Variables) to your Render URL so the built app calls your own backend.
+
 
 ## Why this fits the Klaviyo AI Builder Resident role
 
