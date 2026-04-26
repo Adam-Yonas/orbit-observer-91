@@ -1,103 +1,324 @@
 # Orbital Watch
 
-A real-time 3D space-debris dashboard with an **agentic AI co-pilot**. Built end-to-end (frontend, edge functions, database, LLM tool-calling) as a portfolio piece for the **Klaviyo AI Builder Resident** program.
+## Problem Statement
 
-> Live demo: https://orbit-observer-91.lovable.app
+Modern systems generate large volumes of dynamic, time-evolving data, but most tools fail to make that data interpretable or actionable.
+
+In the context of space operations, satellite operators must reason about:
+- thousands of moving objects
+- evolving collision risk
+- cascading failure scenarios (Kessler Syndrome)
+
+This problem extends beyond aerospace. Many industries face similar challenges:
+- understanding complex systems over time
+- identifying risk before it becomes failure
+- translating raw data into decisions
+
+The primary users affected are:
+- satellite operators
+- mission planners
+- analysts working with dynamic systems
+
+If solved, users would be able to:
+- understand system state instantly
+- simulate future scenarios
+- make informed decisions under uncertainty
+
+Success would mean:
+- faster identification of high-risk configurations
+- ability to test “what-if” scenarios interactively
+- reduced cognitive load when interpreting complex systems
 
 ---
 
-## What it does
+## Solution Overview
 
-- **Live orbital cloud** — streams TLEs from CelesTrak through a cached edge function, then propagates ~5,000+ objects with **SGP4** (`satellite.js`) directly in the browser.
-- **3D globe** — `react-three-fiber` renders the cloud at 60 fps with additive blending, an atmospheric glow, and a wireframe scan overlay.
-- **Time scrubber** — play / pause / scrub ±12 h with 1×, 1 m/s, 10 m/s, 1 h/s speeds.
-- **Filters** — toggle payloads / rocket bodies / debris and clamp the altitude band.
-- **Object inspector** — click any point to see perigee, apogee, inclination, period, and a heuristic conjunction-risk score.
-- **Kessler simulator** — fragment any object into ~80 perturbed children to demonstrate cascade dynamics.
-- **AI Co-pilot** — a Gemini 2.5 chat that calls real tools against your loaded catalog (no hallucinated numbers).
+Orbital Watch is an interactive platform that combines:
+- real-time orbital data visualization
+- simulation of collision cascades
+- an AI-assisted interface for reasoning about system behavior
 
-## The agentic part (the interesting bit)
+### Key Features
 
-The `copilot` edge function exposes four tools to the LLM:
+- 3D orbit visualization using SGP4 propagation  
+- Altitude density analysis across orbital bands  
+- Conjunction detection using miss distance and time horizon  
+- Kessler-style cascade simulation with fragment propagation  
+- AI Copilot interface for natural language interaction  
 
-| Tool | What it returns |
-| --- | --- |
-| `catalog_summary` | Total counts, average altitude, high-risk count |
-| `search_objects` | Filter by name / kind / country / altitude / inclination / risk |
-| `altitude_histogram` | Counts per altitude shell, broken down by class |
-| `kessler_risk_assessment` | Most congested shells ranked by `density × avg_risk` |
+### Role of AI
 
-The function runs an **agentic loop** (up to 5 steps): the model picks a tool, the function executes it against the catalog the client uploaded, the result is appended to the message history, and the model decides whether to call another tool or answer.
+AI acts as an interpretation layer that converts user intent into structured system actions.
 
-Every number in an answer is traceable to a JSON tool result.
+It enables users to interact with the system using natural language instead of manual parameter tuning.
 
-## Stack
+Without AI, the system would require:
+- manual configuration  
+- domain expertise  
+- multiple UI interactions  
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind, shadcn/ui
-- **3D**: three.js, `@react-three/fiber`, `@react-three/drei`
-- **Orbital math**: `satellite.js` (SGP4)
-- **Backend**: Lovable Cloud (Supabase) — Postgres TLE cache + Deno edge functions
-- **LLM**: Lovable AI Gateway → `google/gemini-2.5-flash` with OpenAI-compatible tool calling
+With AI, the system becomes:
+- faster to use  
+- easier to explore  
+- more accessible to non-experts  
 
-## Architecture
+---
 
+## AI Integration
+
+The current implementation uses a lightweight deterministic AI layer instead of a full LLM.
+
+### Design Choices
+
+- Local heuristic model instead of external LLM APIs  
+- Deterministic outputs for reliability  
+- Designed for future extension into:
+  - LLM-based planning  
+  - tool-calling systems  
+  - multi-step reasoning pipelines  
+
+### Patterns Used
+
+- Intent → structured mapping  
+- Constraint-based reasoning  
+- System-aware recommendations  
+
+### Tradeoffs
+
+- Chose reliability and latency over LLM flexibility  
+- Avoided API cost and rate limits  
+- Reduced hallucination risk  
+
+### Where AI Worked Well
+
+- Simplified user interaction significantly  
+- Enabled rapid scenario exploration  
+- Reduced need for manual parameter tuning  
+
+### Where AI Fell Short
+
+- Limited ability to perform deep optimization  
+- No long-horizon planning  
+- Lacks probabilistic reasoning  
+
+---
+
+## Architecture / Design Decisions
+
+### Architecture
+
+Frontend (React + Vite + Plotly)  
+↓  
+Backend (FastAPI on Render)  
+↓  
+Data (CelesTrak TLE + synthetic simulation)
+
+### Key Design Decisions
+
+- Used SGP4 for realistic orbit propagation  
+- Implemented cascade simulation using heuristic delta-v distribution  
+- Used discrete timestep collision detection for performance  
+- Hosted frontend on GitHub Pages and backend on Render  
+
+### Tradeoffs
+
+- Prioritized interactivity over physical accuracy  
+- Used synthetic fragment generation instead of NASA breakup models  
+- Chose simple backend API for extensibility  
+
+---
+
+## Development with AI Tools
+
+This project was built using AI-assisted development tools, primarily Cursor and Lovable, to accelerate both implementation and iteration.
+
+### Cursor (Primary Development Environment)
+
+Cursor was used to:
+- scaffold React components and FastAPI endpoints  
+- debug frontend-backend integration issues  
+- fix runtime errors (React hooks, routing, API calls)  
+- refactor and clean up code structure  
+
+It was especially helpful for:
+- rapid iteration  
+- resolving deployment issues (GitHub Pages + Render)  
+- reducing time spent on boilerplate  
+
+Limitations:
+- occasional incorrect assumptions about React lifecycle rules  
+- incomplete edge case handling  
+- required manual validation of generated logic  
+
+Workflow:
+1. generate solution  
+2. test locally  
+3. refine manually  
+
+---
+
+### Lovable (UI + System Enhancement)
+
+Lovable was used to:
+- accelerate UI structure and layout  
+- improve component quality and styling  
+- prototype interactive features quickly  
+- enhance overall user experience  
+
+It enabled faster iteration on:
+- dashboard layout  
+- control panels and filters  
+- interaction design  
+
+Limitations:
+- required restructuring to fit final architecture  
+- some generated logic needed replacement  
+- not all outputs were production-ready  
+
+---
+
+### Combined Impact
+
+Using Cursor and Lovable together:
+- significantly reduced development time  
+- enabled rapid iteration  
+- allowed focus on system design over boilerplate  
+
+AI acted as a **force multiplier**, but required:
+- careful validation  
+- manual debugging  
+- strong engineering judgment  
+
+---
+
+## Getting Started / Setup Instructions
+
+### Prerequisites
+
+- Node.js (v18+)  
+- Python (v3.10–3.12)  
+- npm  
+
+---
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Adam-Yonas/orbit-observer-91.git
+cd orbit-observer-91
 ```
-Browser ──▶ /functions/fetch-tle ──▶ CelesTrak (cached 6h in Postgres)
-   │
-   ├─ SGP4 propagation (satellite.js) ──▶ react-three-fiber points cloud
-   │
-   └─▶ /functions/copilot ──▶ Lovable AI (Gemini 2.5)
-                                   │
-                                   └─ tool calls ─▶ executed in-function against
-                                                     the slimmed catalog payload
+
+---
+
+### 2. Install frontend dependencies
+
+```bash
+npm install
 ```
 
-## Run locally
+---
+
+### 3. Start the frontend
+
+```bash
+npm run dev
+```
 
 Frontend:
 
-```bash
-bun install
-bun run dev
+```
+http://localhost:5173
 ```
 
-Backend (self-hosted Python — see `backend/README.md` for full docs):
+---
+
+### 4. Run the backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-export LOVABLE_API_KEY=...   # or GEMINI_API_KEY
-uvicorn app:app --reload --port 8000
+uvicorn main:app --reload
 ```
 
-Then point the frontend at it:
+Backend:
 
-```bash
-echo 'VITE_BACKEND_URL=http://localhost:8000' >> .env.local
-bun run dev
 ```
-
-If `VITE_BACKEND_URL` is unset the frontend falls back to the Lovable Cloud
-edge functions (auto-injected `VITE_SUPABASE_URL`).
-
-## Deploy
-
-- **Backend → Render**: push to GitHub, point Render at the repo, the
-  included `render.yaml` provisions the service. Add `LOVABLE_API_KEY` (or
-  `GEMINI_API_KEY`) and `ALLOWED_ORIGINS` in the Render dashboard.
-- **Frontend → GitHub Pages**: the workflow in `.github/workflows/deploy.yml`
-  builds and deploys on every push to `main`. Set repo variable
-  `VITE_BACKEND_URL` (Settings → Secrets and variables → Actions →
-  Variables) to your Render URL so the built app calls your own backend.
-
-
-## Why this fits the Klaviyo AI Builder Resident role
-
-- **Ships with AI in production**, not just a notebook demo.
-- **Agentic workflow** with real tool execution and a bounded reasoning loop.
-- **Full-stack ownership** — schema, edge functions, prompt design, UI, deploy.
-- **Built fast with AI-assisted coding** (Lovable) and iterated to production polish.
+http://127.0.0.1:8000
+```
 
 ---
 
-Data: CelesTrak GP catalog. Risk scores are a visualization heuristic, not an operational conjunction-analysis product.
+### 5. Verify backend
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Expected:
+
+```json
+{"status": "ok"}
+```
+
+---
+
+### 6. Connect frontend to backend
+
+Update in `src/App.tsx`:
+
+```ts
+const API_BASE = "http://127.0.0.1:8000";
+```
+
+---
+
+## Demo
+
+Live site:
+
+https://adam-yonas.github.io/orbit-observer-91/
+
+### How to Use
+
+- Toggle object classes (payloads, debris, rocket bodies)  
+- Adjust altitude filters  
+- Launch a simulated satellite  
+- Trigger a cascade event  
+- Observe fragment propagation  
+- Use AI Copilot for scenario input  
+
+---
+
+## Testing / Error Handling
+
+- Backend includes `/health` endpoint for validation  
+- Frontend handles API failures gracefully  
+- Cascade simulation includes:
+  - fragment limits  
+  - generation caps  
+  - fallback propagation  
+
+Edge cases considered:
+- invalid TLE data  
+- propagation failures  
+- excessive fragment growth  
+
+---
+
+## Future Improvements
+
+- probabilistic collision modeling  
+- improved breakup physics  
+- persistent simulations  
+- full LLM-based planning system  
+- backend-driven risk scoring  
+
+---
+
+## Application Links
+
+Frontend:
+https://adam-yonas.github.io/orbit-observer-91/
+
+Backend:
+https://space-debris-dashboard.onrender.com/health
