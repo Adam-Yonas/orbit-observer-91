@@ -294,6 +294,7 @@ export function Globe(props: GlobeProps) {
       <Stars radius={50} depth={50} count={3000} factor={3} fade speed={0.5} />
       <Earth />
       <DebrisCloud {...props} />
+      <UserObjects catalog={props.catalog} visibleIds={props.visibleIds} time={props.time} />
       <OrbitControls
         enablePan={false}
         minDistance={1.6}
