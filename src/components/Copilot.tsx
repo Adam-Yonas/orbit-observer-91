@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, X, Loader2, Wrench } from "lucide-react";
 import { OrbitObject } from "@/lib/orbital";
 import { supabase } from "@/integrations/supabase/client";
+import { BACKEND_URL, USING_CUSTOM_BACKEND } from "@/lib/backend";
 
 interface Message {
   role: "user" | "assistant";
