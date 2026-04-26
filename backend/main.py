@@ -1,20 +1,4 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+# Compatibility shim: some hosts default to `uvicorn main:app`.
+# The real FastAPI application is defined in app.py.
+from app import app  # noqa: F401
 
-app = FastAPI(title="Orbit Observer Backend")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def root():
-    return {"message": "Orbit Observer backend running"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
