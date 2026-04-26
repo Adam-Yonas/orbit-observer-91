@@ -1,4 +1,5 @@
 import * as satellite from "satellite.js";
+import { BACKEND_URL } from "./backend";
 
 export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
@@ -756,15 +757,14 @@ function classifyFromName(name: string): DebrisKind {
 
 export async function fetchLiveCatalog(
   groups: string[] = ["active", "iridium-33-debris", "cosmos-1408-debris"],
-  supabaseUrl?: string
+  backendUrlOverride?: string
 ): Promise<OrbitObject[]> {
-  const base =
-    supabaseUrl ?? (import.meta as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL;
-  if (!base) throw new Error("VITE_SUPABASE_URL not configured");
+  const base = backendUrlOverride ?? BACKEND_URL;
+  if (!base) throw new Error("No backend configured (set VITE_BACKEND_URL or VITE_SUPABASE_URL)");
 
   const all: OrbitObject[] = [];
   for (const group of groups) {
-    const url = `${base}/functions/v1/fetch-tle?group=${encodeURIComponent(group)}&limit=2000`;
+    const url = `${base}/fetch-tle?group=${encodeURIComponent(group)}&limit=2000`;
     const resp = await fetch(url);
     if (!resp.ok) {
       console.warn(`fetch-tle failed for ${group}: ${resp.status}`);
