@@ -92,23 +92,31 @@ It fell short in situations requiring deeper reasoning or multi-step planning. E
 
 ## Architecture / Design Decisions
 
-The system is structured as a separation between visualization, computation, and data ingestion.
+The system is currently designed to run most computation directly in the frontend.
 
-The frontend is built using React and Vite and is responsible for rendering the system state and handling user interaction. It does not perform heavy computation, which ensures that the interface remains responsive.
+The frontend, built with React and Vite, is responsible for:
+- rendering the system in real time  
+- handling user interaction  
+- performing orbit propagation using SGP4  
+- running proximity detection  
+- simulating cascade events  
 
-The backend is implemented in FastAPI and handles all simulation logic, including orbit propagation, proximity detection, and cascade modeling. This separation allows the computational layer to scale independently from the interface.
+This decision was intentional. Running simulation logic in the browser allows:
+- immediate feedback to user actions  
+- no network latency during interaction  
+- faster iteration during development  
 
-Orbital data is sourced from publicly available TLE datasets and propagated using the SGP4 model. This provides a realistic baseline for motion without requiring full physics simulation.
+This makes the system feel responsive and enables real-time exploration of scenarios.
 
-A key design decision was to use discrete timesteps instead of continuous-time modeling. This significantly reduces computational cost and enables real-time interaction, at the expense of precision.
+The backend is implemented in FastAPI and currently serves as a lightweight API layer. It includes a health endpoint and provides a structured foundation for future expansion.
 
-Cascade events are modeled using a simplified approach where fragments inherit velocity with perturbations. This captures the qualitative behavior of debris spreading while remaining computationally efficient.
+The system is deployed using:
+- GitHub Pages for the frontend  
+- Render for the backend  
 
-The system is deployed using a split architecture:
-- frontend hosted on GitHub Pages  
-- backend hosted on Render  
+### Tradeoffs
 
-This reflects common production patterns where user interfaces and computation services are decoupled.
+Running simulation in the frontend improves responsiveness but limits scalability and computational depth. As the system grows more complex, this approach will become less efficient.
 
 ---
 
@@ -243,7 +251,11 @@ Edge cases considered include:
 ## Future Improvements
 
 Future work includes:
+
+- moving simulation logic to the backend to support heavier computation and multi-user scenarios  
 - probabilistic collision modeling  
 - improved physical modeling of fragmentation  
 - persistent simulation scenarios  
 - more advanced AI planning capabilities  
+
+The next major step would be transitioning from a client-side simulation model to a backend-driven system, enabling more accurate, scalable, and collaborative use cases.
