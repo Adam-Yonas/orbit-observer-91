@@ -92,23 +92,27 @@ It fell short in situations requiring deeper reasoning or multi-step planning. E
 
 ## Architecture / Design Decisions
 
-The system is currently designed to run most computation directly in the frontend.
+The system is structured as a separation between data ingestion, simulation, and visualization, with an emphasis on responsiveness and clarity.
 
-The frontend, built with React and Vite, is responsible for:
-- rendering the system in real time  
+Orbital data is sourced from publicly available satellite tracking datasets in the form of Two-Line Element (TLE) data. These TLEs represent the current known state of objects in orbit.
+
+Instead of treating this data as static, the system continuously propagates each object forward in time using the SGP4 model. This means the system is not just displaying where objects are, but actively predicting where they will be as time evolves.
+
+As a result, the environment shown to the user is constantly updating, reflecting a dynamic system rather than a snapshot. This is critical for exposing how relationships between objects change and how risk emerges over time.
+
+The current architecture is frontend-first. The frontend, built with React and Vite, is responsible for:
+- rendering the system in 3D  
 - handling user interaction  
 - performing orbit propagation using SGP4  
 - running proximity detection  
 - simulating cascade events  
 
-This decision was intentional. Running simulation logic in the browser allows:
+Running this logic in the browser was an intentional decision. It allows:
 - immediate feedback to user actions  
 - no network latency during interaction  
-- faster iteration during development  
+- rapid iteration during development  
 
-This makes the system feel responsive and enables real-time exploration of scenarios.
-
-The backend is implemented in FastAPI and currently serves as a lightweight API layer. It includes a health endpoint and provides a structured foundation for future expansion.
+The backend is implemented in FastAPI and currently serves as a lightweight API layer. It provides a health endpoint and a structured foundation for future expansion.
 
 The system is deployed using:
 - GitHub Pages for the frontend  
@@ -116,7 +120,9 @@ The system is deployed using:
 
 ### Tradeoffs
 
-Running simulation in the frontend improves responsiveness but limits scalability and computational depth. As the system grows more complex, this approach will become less efficient.
+Running simulation in the frontend improves responsiveness but limits scalability and computational complexity.
+
+Using TLE data with SGP4 provides realistic motion modeling, but does not capture all physical effects such as atmospheric drag variations or high-fidelity collision physics.
 
 ---
 
