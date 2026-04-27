@@ -2,38 +2,38 @@
 
 ## Problem Statement
 
-Many modern systems generate large volumes of dynamic, time-dependent data, yet most tools fail at the harder problem: helping users understand what to do with that data.
+The rapid growth of satellite deployments has made it increasingly difficult to identify safe and sustainable orbits.
 
-Users are often presented with dashboards that describe the current state of a system, but not its implications. They are required to interpret relationships manually, anticipate future outcomes, and make decisions without clear guidance. This creates a gap between data visibility and decision-making.
+New satellite operators must choose orbital parameters that avoid collisions not just at launch, but over time as objects move and interact. This is challenging because orbital environments are dynamic. The relative positions of objects change continuously, and small differences in trajectory can lead to close approaches or collisions.
 
-This problem appears across domains:
-- operations teams monitoring infrastructure health over time  
-- analysts evaluating evolving risk exposure  
-- planners making decisions under uncertainty  
+Most available tools either provide static snapshots of orbital data or require significant expertise to interpret. This makes it difficult, especially for smaller or newer organizations, to evaluate whether a proposed orbit is actually safe.
 
-In each case, the system being observed is not static. Relationships change, interactions emerge, and small differences can lead to large downstream effects.
+I wanted to build a system that allows users to test an orbit before deployment, evaluate how it interacts with existing objects, and understand how risks evolve over time.
 
-Orbital systems provide a clear example of this challenge. Thousands of objects move continuously, proximity changes over time, and collisions can create cascading consequences. However, the goal of this project is not limited to space debris. It is to explore how to design tools that help users reason about complex, evolving systems more effectively.
+Beyond initial placement, it is also important to understand how failures affect the system. A single collision can generate debris that increases risk for other objects, creating cascading effects.
 
-The users most affected by this problem are individuals who must make decisions based on dynamic data but do not have the time or expertise to interpret it manually.
+The goal of this project is to provide a way to:
+- evaluate orbit safety dynamically  
+- simulate how a new object interacts with an existing system  
+- understand how local events impact the broader environment  
 
-Success for this system would mean:
-- reducing the time required to identify risk  
-- enabling users to test hypothetical scenarios  
-- making system behavior understandable without deep domain expertise  
+Success would mean that a user can move from guessing whether an orbit is safe to directly testing and understanding its behavior.
 
 ---
 
 ## Solution Overview
 
-Orbital Watch is an interactive system that transforms complex, time-evolving data into an environment users can explore, modify, and learn from.
+Orbital Watch is an interactive system designed to evaluate orbit safety and system-level risk in a dynamic orbital environment.
 
-Instead of presenting static information, the system allows users to:
-- observe how the system evolves over time  
-- introduce changes and see their consequences  
-- understand how interactions emerge within the system  
+Instead of presenting static orbital data, the system allows users to test proposed orbits, observe how they interact with existing satellites and debris, and understand how risk evolves over time. It combines real orbital data from CelesTrak with continuous propagation using the SGP4 model to simulate how objects move and relate to one another.
 
-The core idea is to move from passive observation to active exploration.
+Users can introduce new objects into the system and immediately evaluate their exposure to potential collisions. The system also supports simulation of cascade events, allowing users to see how a single failure can generate debris and impact the broader environment.
+
+An AI-assisted interface reduces the need for manual configuration by translating user intent into system actions. This allows users to focus on evaluating outcomes rather than tuning parameters.
+
+The result is a system that turns orbit selection and analysis into an interactive process, enabling users to move from guessing whether an orbit is safe to directly testing and understanding its behavior.
+
+---
 
 ### Key Capabilities
 
@@ -241,17 +241,17 @@ https://adam-yonas.github.io/orbit-observer-91/
 
 ## How to Use
 
-Begin by exploring the system visually. Adjust filters to understand how objects are distributed and where density increases.
+Begin by exploring the existing orbital environment. Adjust filters to understand where objects are concentrated and how congestion varies across altitude ranges.
 
-Introduce a new object to see how it interacts with existing ones. This reveals how small changes affect system behavior.
+To evaluate a proposed orbit, define a new object and insert it into the system. The system will immediately propagate its motion and evaluate how it interacts with existing objects over time.
 
-Observe detected interactions to understand how proximity evolves over time.
+Review detected interactions to understand how proximity evolves and where potential collision risks emerge. This allows you to see how small differences in orbital parameters can affect safety.
 
-Trigger a cascade event to see how localized disruptions propagate through the system.
+To understand system-level impact, trigger a cascade event. This generates fragments from a collision and propagates them forward, showing how a single event can increase risk across the system.
 
-Adjust simulation parameters to understand how assumptions influence outcomes.
+You can adjust simulation parameters such as screening horizon and proximity thresholds to explore how different assumptions influence outcomes.
 
-Use the AI interface to express goals and allow the system to translate them into actions.
+Finally, use the AI Copilot to describe goals or scenarios in natural language. The system will translate this intent into actions, reducing the need for manual parameter tuning and enabling faster exploration of safer configurations.
 
 ---
 
