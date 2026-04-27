@@ -54,14 +54,25 @@ It combines:
 - forward simulation  
 - AI-assisted interaction  
 
-### Key Features
+## Key Features
 
-- 3D orbit visualization using SGP4 propagation  
-- Altitude density analysis across orbital bands  
-- Conjunction detection using miss distance and time horizon  
-- Kessler-style cascade simulation with fragment propagation  
-- AI Copilot interface for natural language interaction  
+Orbital Watch provides several capabilities that help users understand and interact with a dynamic system:
 
+- **3D System Visualization**  
+  Objects are rendered in a live 3D environment, allowing users to see how positions change over time rather than interpreting static data.
+
+- **Density Analysis by Region**  
+  The system groups objects by altitude ranges to highlight where congestion occurs, helping users quickly identify high-risk zones.
+
+- **Proximity Detection (Conjunctions)**  
+  The system continuously checks whether objects come within a defined distance of each other over a time window, surfacing potential risks.
+
+- **Scenario Simulation (Cascade Events)**  
+  Users can simulate a collision event and observe how fragments spread and interact with other objects over time.
+
+- **Natural Language Interaction (AI Copilot)**  
+  Instead of manually adjusting parameters, users can describe goals or questions, and the system translates them into actions.
+  
 ---
 
 ## AI Integration
@@ -98,13 +109,25 @@ Instead of requiring manual parameter tuning, users can express goals in natural
 
 ## Architecture / Design Decisions
 
-### Architecture
+The system is intentionally designed as a separation between visualization, computation, and data ingestion to keep it modular and responsive.
 
-Frontend (React + Vite + Plotly)  
-↓  
-Backend (FastAPI)  
-↓  
-Data (CelesTrak TLE + simulation layer)
+The frontend is built in React and is responsible for rendering the system state and handling user interaction. It performs no heavy computation, which keeps the interface fast and responsive even as the number of objects increases.
+
+The backend is implemented in FastAPI and handles all simulation logic, including orbit propagation, proximity detection, and cascade modeling. This separation allows the computational layer to scale independently from the user interface.
+
+Orbital data is sourced from publicly available Two-Line Element (TLE) sets and propagated using the SGP4 model. This provides a realistic baseline for object motion without requiring full physics simulation.
+
+A key design decision was to use discrete timestep simulation rather than continuous-time modeling. This significantly reduces computational cost and allows real-time interaction, at the expense of precision.
+
+Collision cascades are modeled using a simplified heuristic approach where fragments inherit the parent object's velocity with perturbations. While this is not physically exact, it captures the qualitative behavior of debris spreading and risk amplification.
+
+The system is deployed using a split architecture:
+- the frontend is hosted on GitHub Pages for fast static delivery  
+- the backend is hosted on Render to provide a persistent API  
+
+This separation mirrors production systems where computation and presentation are decoupled.
+
+Overall, the system prioritizes interactivity and clarity over full physical accuracy, enabling users to explore and understand system behavior rather than producing mission-grade predictions.
 
 ---
 
@@ -286,10 +309,53 @@ https://adam-yonas.github.io/orbit-observer-91/
 
 ### Explore the System
 
-- toggle object types  
-- adjust altitude filters  
+Users can filter which types of objects are visible and adjust the altitude range.
 
-**Shows:** system density and congestion patterns  
+This allows them to quickly see where objects are concentrated and how crowded different regions are.
+
+---
+
+### Add a New Object
+
+Users can define a new orbit and insert it into the system.
+
+The system immediately evaluates how that object interacts with others, highlighting potential risks.
+
+---
+
+### Understand Risk
+
+The system detects when objects come close to each other and surfaces those interactions.
+
+This helps users understand how small changes in position or trajectory can lead to potential collisions.
+
+---
+
+### Simulate a Cascade Event
+
+Users can trigger a simulated collision that generates fragments.
+
+The system then propagates those fragments forward and evaluates how they interact with existing objects.
+
+This demonstrates how failures in a system can create downstream effects.
+
+---
+
+### Adjust Model Sensitivity
+
+Users can change parameters such as:
+- how far into the future the system checks interactions  
+- how close objects must be to count as a risk  
+
+This shows how different assumptions affect the system’s behavior.
+
+---
+
+### Use the AI Copilot
+
+Users can describe goals or ask questions in plain language.
+
+The system translates this into actions or recommendations, reducing the need for manual configuration.
 
 ---
 
