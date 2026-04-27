@@ -29,7 +29,7 @@ Instead of presenting static orbital data, the system allows users to test propo
 
 Users can introduce new objects into the system and immediately evaluate their exposure to potential collisions. The system also supports simulation of cascade events, allowing users to see how a single failure can generate debris and impact the broader environment.
 
-An AI-assisted interface reduces the need for manual configuration by translating user intent into system actions. This allows users to focus on evaluating outcomes rather than tuning parameters.
+An AI-assisted Copilot, powered by Gemini 2.5 Flash, allows users to describe goals in natural language and translates that intent into system actions. This allows users to focus on evaluating outcomes rather than tuning parameters.
 
 The result is a system that turns orbit selection and analysis into an interactive process, enabling users to move from guessing whether an orbit is safe to directly testing and understanding its behavior.
 
@@ -62,31 +62,24 @@ With AI, the system becomes more accessible and responsive to user goals.
 
 ## AI Integration
 
-The AI component is designed to map user intent to system actions in a predictable and reliable way.
+The Copilot interface uses Gemini 2.5 Flash through the Lovable AI Gateway to enable natural language interaction with the system.
 
-The current implementation uses a deterministic model rather than a full large language model. This decision was made to prioritize:
-- low latency  
-- consistent outputs  
-- ease of debugging  
+The role of the AI is not to simulate physics or replace the core model, but to reduce the gap between user intent and system configuration. A user can describe a goal, such as evaluating a safer orbit or understanding risk, and the Copilot translates that into structured actions using the system’s existing data and tools.
 
-The system follows a simple pipeline:
-1. interpret user input  
-2. map it to system constraints  
-3. generate structured actions  
+The Copilot operates by combining:
+- Gemini for natural language understanding  
+- tool-calling against the loaded orbital catalog  
+- deterministic simulation logic for evaluation  
 
-This approach avoids issues such as hallucination and inconsistent behavior, while still providing meaningful abstraction.
+This separation is intentional. The AI is used as an interface layer, while all simulation, propagation, and risk evaluation remain grounded in deterministic models running in the system.
 
 ### Tradeoffs
 
-Choosing a deterministic approach limits flexibility. The system cannot perform deep optimization or long-term planning. It also lacks probabilistic reasoning.
-
-However, this tradeoff improves reliability and ensures that outputs remain grounded in system behavior.
+Using Gemini enables flexible and intuitive interaction, but introduces dependency on an external model and requires careful control over how outputs are mapped to system actions.
 
 ### Reflection
 
-The AI integration worked well in reducing interaction cost. Users were able to explore scenarios more quickly and with less friction.
-
-It fell short in situations requiring deeper reasoning or multi-step planning. Extending the system to include tool-calling or planning-based LLM architectures would improve this.
+The AI integration improved usability by allowing users to explore the system without needing to understand every parameter. However, it does not yet perform multi-step planning or optimization, which would be the next step in making it more decision-focused.
 
 ---
 
