@@ -193,13 +193,18 @@ Update `src/App.tsx`:
 const API_BASE = "http://127.0.0.1:8000";
 ```
 
+You can view the UI locally at:
+
+http://localhost:5173/orbit-observer-91
+
+Once the development server is running, open this URL in your browser to interact with the application.
+
 ---
 
 ## Demo
 
 Live application:
 
-Frontend:  
 https://adam-yonas.github.io/orbit-observer-91/
 
 ---
