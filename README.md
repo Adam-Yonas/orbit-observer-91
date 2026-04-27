@@ -140,12 +140,15 @@ Together, these tools allowed for faster iteration and development, but they did
 
 ### Prerequisites
 
-- Node.js (v18+)  
-- Python (v3.10–3.12)  
+Before running the project locally, install:
+
+- Node.js v18 or newer
+- Python v3.10–3.12
+- Git
 
 ---
 
-### Clone
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Adam-Yonas/orbit-observer-91.git
@@ -154,20 +157,9 @@ cd orbit-observer-91
 
 ---
 
-### Frontend
+### 2. Start the backend first
 
-```bash
-npm install
-npm run dev
-```
-
-```
-http://localhost:5173
-```
-
----
-
-### Backend
+Open a terminal from the project root and run:
 
 ```bash
 cd backend
@@ -175,39 +167,72 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-```
+The backend should run locally at:
+
+```text
 http://127.0.0.1:8000
 ```
 
----
-
-### Verify Backend
+Verify the backend is working:
 
 ```bash
 curl http://127.0.0.1:8000/health
 ```
 
+Expected response:
+
 ```json
-{"status": "ok"}
+{"status":"ok"}
 ```
+
+Keep this backend terminal running.
 
 ---
 
-### Connect Frontend
+### 3. Start the frontend
 
-Update `src/App.tsx`:
+Open a second terminal from the project root and run:
+
+```bash
+npm install
+npm run dev
+```
+
+The frontend should run locally at:
+
+```text
+http://localhost:8080/orbit-observer-91
+```
+
+Open that URL in your browser to view the UI.
+
+---
+
+### 4. Confirm local frontend-backend connection
+
+For local development, `src/App.tsx` should point to the local backend:
 
 ```ts
 const API_BASE = "http://127.0.0.1:8000";
 ```
 
-You can view the UI locally at:
-
-http://localhost:5173/orbit-observer-91
-
-Once the development server is running, open this URL in your browser to interact with the application.
+When the frontend loads, it should be able to call the local backend health endpoint.
 
 ---
+
+### 5. Build locally
+
+To create a production build:
+
+```bash
+npm run build
+```
+
+To preview the production build locally:
+
+```bash
+npm run preview
+```
 
 ## Demo
 
