@@ -18,10 +18,15 @@ interface Props {
 }
 
 export function FilterPanel({ filters, setFilters, catalog, visibleCount }: Props) {
+  const altitudeFilteredObjects = catalog.filter((o) => {
+    const mid = (o.perigeeKm + o.apogeeKm) / 2;
+    return mid >= filters.altMin && mid <= filters.altMax;
+  });
+  
   const counts = {
-    payload: catalog.filter((o) => o.kind === "payload").length,
-    rocket_body: catalog.filter((o) => o.kind === "rocket_body").length,
-    debris: catalog.filter((o) => o.kind === "debris").length,
+    payload: altitudeFilteredObjects.filter((o) => o.kind === "payload").length,
+    rocket_body: altitudeFilteredObjects.filter((o) => o.kind === "rocket_body").length,
+    debris: altitudeFilteredObjects.filter((o) => o.kind === "debris").length,
   };
 
   return (
