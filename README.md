@@ -94,8 +94,13 @@ It fell short in situations requiring deeper reasoning or multi-step planning. E
 
 The system is structured as a separation between data ingestion, simulation, and visualization, with an emphasis on responsiveness and clarity.
 
-Orbital data is sourced from publicly available satellite tracking datasets in the form of Two-Line Element (TLE) data. These TLEs represent the current known state of objects in orbit.
+Orbital data is sourced from CelesTrak, which provides publicly available Two-Line Element (TLE) datasets for active satellites and debris. These TLEs represent the latest known orbital parameters for each object.
 
+The system fetches this data and uses it as the initial state for all objects in the environment. From there, each object is continuously propagated forward in time using the SGP4 model.
+
+This means the system is not simply displaying static positions from the dataset. Instead, it is using real-world orbital parameters as a starting point and actively predicting future positions as time evolves.
+
+By combining real TLE data with continuous propagation, the system reflects a dynamic and evolving environment, allowing users to observe how relationships between objects change and how risk develops over time.
 Instead of treating this data as static, the system continuously propagates each object forward in time using the SGP4 model. This means the system is not just displaying where objects are, but actively predicting where they will be as time evolves.
 
 As a result, the environment shown to the user is constantly updating, reflecting a dynamic system rather than a snapshot. This is critical for exposing how relationships between objects change and how risk emerges over time.
