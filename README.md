@@ -1,239 +1,143 @@
-# Orbital Watch : https://adam-yonas.github.io/orbit-observer-91/
+# Orbital Watch
 
 ## Problem Statement
 
-Modern products increasingly rely on large volumes of dynamic, time-dependent data, yet most interfaces fail to make that data actionable.
+Many modern systems generate large volumes of dynamic, time-dependent data, yet most tools fail at the harder problem: helping users understand what to do with that data.
 
-Users are often forced to:
-- manually interpret complex system states
-- navigate multiple tools to understand risk
-- make decisions without clear forward projections
+Users are often presented with dashboards that describe the current state of a system, but not its implications. They are required to interpret relationships manually, anticipate future outcomes, and make decisions without clear guidance. This creates a gap between data visibility and decision-making.
 
-This creates a gap between **data availability** and **decision-making ability**.
+This problem appears across domains:
+- operations teams monitoring infrastructure health over time  
+- analysts evaluating evolving risk exposure  
+- planners making decisions under uncertainty  
 
-In the context of orbital systems, operators must reason about:
-- thousands of moving objects
-- continuously evolving spatial relationships
-- collision risk that changes over time
+In each case, the system being observed is not static. Relationships change, interactions emerge, and small differences can lead to large downstream effects.
 
-However, this challenge is not unique to aerospace. Similar problems exist in:
-- logistics (routing under uncertainty)
-- finance (risk exposure over time)
-- infrastructure systems (failure propagation)
+Orbital systems provide a clear example of this challenge. Thousands of objects move continuously, proximity changes over time, and collisions can create cascading consequences. However, the goal of this project is not limited to space debris. It is to explore how to design tools that help users reason about complex, evolving systems more effectively.
 
-The core problem is:
-> How do we help users understand and act on complex, evolving systems in real time?
+The users most affected by this problem are individuals who must make decisions based on dynamic data but do not have the time or expertise to interpret it manually.
 
-### Users
-
-- analysts working with dynamic datasets  
-- operators managing risk-sensitive systems  
-- planners exploring future scenarios  
-
-### Desired Outcome
-
-Users should be able to:
-- understand system state instantly  
-- simulate future scenarios  
-- make decisions without manual analysis  
-
-### Success Criteria
-
-- reduced time to identify risk  
-- ability to run “what-if” scenarios interactively  
-- clearer mental model of system behavior  
+Success for this system would mean:
+- reducing the time required to identify risk  
+- enabling users to test hypothetical scenarios  
+- making system behavior understandable without deep domain expertise  
 
 ---
 
 ## Solution Overview
 
-Orbital Watch is an interactive platform that transforms complex system data into an explorable, decision-support interface.
+Orbital Watch is an interactive system that transforms complex, time-evolving data into an environment users can explore, modify, and learn from.
 
-It combines:
-- real-time data visualization  
-- forward simulation  
-- AI-assisted interaction  
+Instead of presenting static information, the system allows users to:
+- observe how the system evolves over time  
+- introduce changes and see their consequences  
+- understand how interactions emerge within the system  
 
-## Key Features
+The core idea is to move from passive observation to active exploration.
 
-Orbital Watch provides several capabilities that help users understand and interact with a dynamic system:
+### Key Capabilities
 
-- **3D System Visualization**  
-  Objects are rendered in a live 3D environment, allowing users to see how positions change over time rather than interpreting static data.
+The system renders objects in a live 3D environment and propagates their motion forward in time. This allows users to see how spatial relationships evolve instead of interpreting static snapshots.
 
-- **Density Analysis by Region**  
-  The system groups objects by altitude ranges to highlight where congestion occurs, helping users quickly identify high-risk zones.
+It continuously evaluates proximity between objects over a configurable time horizon. This exposes interactions that would otherwise remain hidden and helps users understand how risk develops.
 
-- **Proximity Detection (Conjunctions)**  
-  The system continuously checks whether objects come within a defined distance of each other over a time window, surfacing potential risks.
+Users can introduce new objects into the system and observe how they interact with existing ones. This turns the system into a tool for experimentation rather than observation.
 
-- **Scenario Simulation (Cascade Events)**  
-  Users can simulate a collision event and observe how fragments spread and interact with other objects over time.
+The system also supports simulation of cascading events. When a collision is triggered, fragments are generated and propagated forward, allowing users to observe how localized disruptions can affect the entire system.
 
-- **Natural Language Interaction (AI Copilot)**  
-  Instead of manually adjusting parameters, users can describe goals or questions, and the system translates them into actions.
-  
+Finally, the system includes an AI layer that allows users to express intent in natural language. Instead of manually configuring parameters, users can describe goals, and the system translates those into structured actions.
+
+### Role of AI
+
+AI is used as an interface layer rather than a content generator. Its purpose is to reduce the gap between user intent and system configuration.
+
+Without AI, interacting with the system would require:
+- understanding multiple parameters  
+- manually iterating on configurations  
+- interpreting results across multiple steps  
+
+With AI, the system becomes more accessible and responsive to user goals.
+
 ---
 
 ## AI Integration
 
-AI acts as an interpretation layer between user intent and system behavior.
+The AI component is designed to map user intent to system actions in a predictable and reliable way.
 
-Instead of requiring manual parameter tuning, users can express goals in natural language, which are translated into structured actions.
+The current implementation uses a deterministic model rather than a full large language model. This decision was made to prioritize:
+- low latency  
+- consistent outputs  
+- ease of debugging  
 
-### Design Approach
+The system follows a simple pipeline:
+1. interpret user input  
+2. map it to system constraints  
+3. generate structured actions  
 
-- Deterministic local model (no external LLM dependency)  
-- Intent → structured mapping  
-- Constraint-based reasoning  
+This approach avoids issues such as hallucination and inconsistent behavior, while still providing meaningful abstraction.
 
 ### Tradeoffs
 
-- Prioritized reliability and latency over LLM flexibility  
-- Avoided API costs and rate limits  
-- Reduced hallucination risk  
+Choosing a deterministic approach limits flexibility. The system cannot perform deep optimization or long-term planning. It also lacks probabilistic reasoning.
 
-### Where AI Works Well
+However, this tradeoff improves reliability and ensures that outputs remain grounded in system behavior.
 
-- simplifies interaction with complex systems  
-- enables rapid exploration of scenarios  
-- reduces need for domain expertise  
+### Reflection
 
-### Limitations
+The AI integration worked well in reducing interaction cost. Users were able to explore scenarios more quickly and with less friction.
 
-- limited optimization capability  
-- no long-horizon planning  
-- lacks probabilistic reasoning  
+It fell short in situations requiring deeper reasoning or multi-step planning. Extending the system to include tool-calling or planning-based LLM architectures would improve this.
 
 ---
 
 ## Architecture / Design Decisions
 
-The system is intentionally designed as a separation between visualization, computation, and data ingestion to keep it modular and responsive.
+The system is structured as a separation between visualization, computation, and data ingestion.
 
-The frontend is built in React and is responsible for rendering the system state and handling user interaction. It performs no heavy computation, which keeps the interface fast and responsive even as the number of objects increases.
+The frontend is built using React and Vite and is responsible for rendering the system state and handling user interaction. It does not perform heavy computation, which ensures that the interface remains responsive.
 
-The backend is implemented in FastAPI and handles all simulation logic, including orbit propagation, proximity detection, and cascade modeling. This separation allows the computational layer to scale independently from the user interface.
+The backend is implemented in FastAPI and handles all simulation logic, including orbit propagation, proximity detection, and cascade modeling. This separation allows the computational layer to scale independently from the interface.
 
-Orbital data is sourced from publicly available Two-Line Element (TLE) sets and propagated using the SGP4 model. This provides a realistic baseline for object motion without requiring full physics simulation.
+Orbital data is sourced from publicly available TLE datasets and propagated using the SGP4 model. This provides a realistic baseline for motion without requiring full physics simulation.
 
-A key design decision was to use discrete timestep simulation rather than continuous-time modeling. This significantly reduces computational cost and allows real-time interaction, at the expense of precision.
+A key design decision was to use discrete timesteps instead of continuous-time modeling. This significantly reduces computational cost and enables real-time interaction, at the expense of precision.
 
-Collision cascades are modeled using a simplified heuristic approach where fragments inherit the parent object's velocity with perturbations. While this is not physically exact, it captures the qualitative behavior of debris spreading and risk amplification.
+Cascade events are modeled using a simplified approach where fragments inherit velocity with perturbations. This captures the qualitative behavior of debris spreading while remaining computationally efficient.
 
 The system is deployed using a split architecture:
-- the frontend is hosted on GitHub Pages for fast static delivery  
-- the backend is hosted on Render to provide a persistent API  
+- frontend hosted on GitHub Pages  
+- backend hosted on Render  
 
-This separation mirrors production systems where computation and presentation are decoupled.
-
-Overall, the system prioritizes interactivity and clarity over full physical accuracy, enabling users to explore and understand system behavior rather than producing mission-grade predictions.
-
----
-
-### Key Decisions
-
-- SGP4 used for orbit propagation (realistic baseline physics)  
-- Discrete timestep screening for performance  
-- Heuristic fragment generation for real-time cascade simulation  
-- Separation of frontend (GitHub Pages) and backend (Render)
-
----
-
-### Tradeoffs
-
-- prioritized interactivity over full physical accuracy  
-- used synthetic breakup modeling instead of NASA-standard models  
-- optimized for responsiveness over precision  
+This reflects common production patterns where user interfaces and computation services are decoupled.
 
 ---
 
 ## Development with AI Tools
 
-This project was built using AI-assisted tools, primarily Cursor and Lovable.
+This project was built using AI-assisted development tools, primarily Cursor and Lovable.
 
-### Cursor (Primary Development)
+Cursor was used as the primary development environment. It helped accelerate development by generating code, debugging issues, and enabling rapid iteration. It was particularly useful for resolving integration issues between the frontend and backend.
 
-Used for:
-- building React and FastAPI components  
-- debugging frontend/backend integration  
-- fixing runtime issues (hooks, routing, API calls)  
-- accelerating iteration  
+However, Cursor required careful validation. It occasionally produced incorrect assumptions about React lifecycle behavior and did not always account for edge cases. As a result, all generated code was tested and refined manually.
 
-Strengths:
-- rapid code generation  
-- debugging assistance  
-- reduced boilerplate  
+Lovable was used to enhance the user interface and improve overall usability. It enabled rapid prototyping of layouts and components and helped elevate the visual quality of the application.
 
-Limitations:
-- incorrect assumptions about React lifecycle  
-- incomplete edge case handling  
-- required manual validation  
+Not all generated code was suitable for production, and some components required restructuring. However, it significantly reduced the time required to reach a polished interface.
 
-Workflow:
-1. generate  
-2. test  
-3. refine  
+Together, these tools allowed for faster iteration and development, but they did not replace the need for engineering judgment. They were most effective when used as accelerators rather than sources of truth.
 
 ---
 
-### Lovable (UI + Enhancement)
-
-Used for:
-- accelerating UI layout and structure  
-- improving component quality  
-- prototyping interactive features  
-
-Strengths:
-- faster UI iteration  
-- improved visual polish  
-- rapid prototyping  
-
-Limitations:
-- required restructuring for production  
-- some generated logic replaced manually  
-
----
-
-### Combined Impact
-
-- significantly reduced development time  
-- enabled faster iteration cycles  
-- shifted focus toward system design  
-
-AI acted as a **force multiplier**, not a replacement for engineering judgment.
-
----
-
-## Local vs Deployed Usage
-
-This project can be run fully locally.
-
-### Local
-
-- frontend → Vite (localhost:5173)  
-- backend → FastAPI (localhost:8000)  
-
-### Deployed
-
-- frontend → GitHub Pages  
-- backend → Render  
-
-No external services are required for local execution.
-
----
-
-## Getting Started
+## Getting Started / Setup Instructions
 
 ### Prerequisites
 
 - Node.js (v18+)  
 - Python (v3.10–3.12)  
-- npm  
 
 ---
 
-### 1. Clone
+### Clone
 
 ```bash
 git clone https://github.com/Adam-Yonas/orbit-observer-91.git
@@ -242,17 +146,10 @@ cd orbit-observer-91
 
 ---
 
-### 2. Install frontend
+### Frontend
 
 ```bash
 npm install
-```
-
----
-
-### 3. Run frontend
-
-```bash
 npm run dev
 ```
 
@@ -262,7 +159,7 @@ http://localhost:5173
 
 ---
 
-### 4. Run backend
+### Backend
 
 ```bash
 cd backend
@@ -276,7 +173,7 @@ http://127.0.0.1:8000
 
 ---
 
-### 5. Verify backend
+### Verify Backend
 
 ```bash
 curl http://127.0.0.1:8000/health
@@ -288,9 +185,9 @@ curl http://127.0.0.1:8000/health
 
 ---
 
-### 6. Connect frontend to backend
+### Connect Frontend
 
-Update in `src/App.tsx`:
+Update `src/App.tsx`:
 
 ```ts
 const API_BASE = "http://127.0.0.1:8000";
@@ -300,136 +197,61 @@ const API_BASE = "http://127.0.0.1:8000";
 
 ## Demo
 
+Live application:
+
 Frontend:  
 https://adam-yonas.github.io/orbit-observer-91/
+
+Backend:  
+https://space-debris-dashboard.onrender.com/health
 
 ---
 
 ## How to Use
 
-### Explore the System
+Begin by exploring the system visually. Adjust filters to understand how objects are distributed and where density increases.
 
-Users can filter which types of objects are visible and adjust the altitude range.
+Introduce a new object to see how it interacts with existing ones. This reveals how small changes affect system behavior.
 
-This allows them to quickly see where objects are concentrated and how crowded different regions are.
+Observe detected interactions to understand how proximity evolves over time.
 
----
+Trigger a cascade event to see how localized disruptions propagate through the system.
 
-### Add a New Object
+Adjust simulation parameters to understand how assumptions influence outcomes.
 
-Users can define a new orbit and insert it into the system.
-
-The system immediately evaluates how that object interacts with others, highlighting potential risks.
-
----
-
-### Understand Risk
-
-The system detects when objects come close to each other and surfaces those interactions.
-
-This helps users understand how small changes in position or trajectory can lead to potential collisions.
-
----
-
-### Simulate a Cascade Event
-
-Users can trigger a simulated collision that generates fragments.
-
-The system then propagates those fragments forward and evaluates how they interact with existing objects.
-
-This demonstrates how failures in a system can create downstream effects.
-
----
-
-### Adjust Model Sensitivity
-
-Users can change parameters such as:
-- how far into the future the system checks interactions  
-- how close objects must be to count as a risk  
-
-This shows how different assumptions affect the system’s behavior.
-
----
-
-### Use the AI Copilot
-
-Users can describe goals or ask questions in plain language.
-
-The system translates this into actions or recommendations, reducing the need for manual configuration.
-
----
-
-### Launch a Satellite
-
-- configure orbit parameters  
-- click "Launch & Screen"  
-
-**Shows:** how orbit choices affect exposure  
-
----
-
-### Analyze Risk
-
-- review conjunction alerts  
-- inspect miss distance and timing  
-
-**Shows:** how proximity evolves over time  
-
----
-
-### Trigger Cascade
-
-- select object  
-- adjust collision parameters  
-- run cascade  
-
-**Shows:** how fragmentation propagates risk  
-
----
-
-### Adjust Simulation
-
-- screening horizon  
-- miss distance  
-- fragment count  
-
-**Shows:** sensitivity of outcomes to assumptions  
-
----
-
-### Use AI Copilot
-
-- input goals in natural language  
-
-**Shows:** abstraction of complex system control  
+Use the AI interface to express goals and allow the system to translate them into actions.
 
 ---
 
 ## Testing / Error Handling
 
-- `/health` endpoint for backend validation  
-- graceful frontend API fallback  
-- limits on fragment growth  
-- handling for invalid or missing data  
+The backend includes a health endpoint to verify availability.
+
+The frontend handles API failures gracefully and falls back where possible.
+
+The simulation includes safeguards such as limits on fragment generation and handling for invalid data.
+
+Edge cases considered include:
+- invalid orbital data  
+- propagation failures  
+- excessive system growth  
 
 ---
 
-## Future Work
+## Future Improvements
 
+Future work includes:
 - probabilistic collision modeling  
-- improved breakup physics  
-- persistent simulations  
-- full LLM-based planning  
-- backend-driven risk scoring  
+- improved physical modeling of fragmentation  
+- persistent simulation scenarios  
+- more advanced AI planning capabilities  
 
 ---
 
 ## Summary
 
-Orbital Watch demonstrates how to:
+Orbital Watch demonstrates how to design systems that help users understand and interact with complex, evolving data.
 
-- transform complex, dynamic data into an interactive system  
-- simulate future states of a system  
-- integrate AI to simplify decision-making  
+It combines visualization, simulation, and AI-assisted interaction to reduce the gap between observing a system and making decisions within it.
 
-The approach generalizes beyond aerospace to any domain involving evolving data and uncertainty.
+The approach is broadly applicable to any domain where understanding change over time is critical.
