@@ -1,4 +1,4 @@
-# Orbital Watch
+# Orbital Watch: https://adam-yonas.github.io/orbit-observer-91/
 
 ## Problem Statement
 
@@ -201,9 +201,6 @@ Live application:
 
 Frontend:  
 https://adam-yonas.github.io/orbit-observer-91/
-
-Backend:  
-https://space-debris-dashboard.onrender.com/health
 
 ---
 
