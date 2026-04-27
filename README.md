@@ -189,7 +189,19 @@ Keep this backend terminal running.
 
 ---
 
-### 3. Start the frontend
+### 3. Confirm local frontend-backend connection
+
+For local development, `src/App.tsx` should point to the local backend:
+
+```ts
+const API_BASE = "http://127.0.0.1:8000";
+```
+
+When the frontend loads, it should be able to call the local backend health endpoint.
+
+---
+
+### 4. Start the frontend
 
 Open a second terminal from the project root and run:
 
@@ -207,32 +219,6 @@ http://localhost:8080/orbit-observer-91
 Open that URL in your browser to view the UI.
 
 ---
-
-### 4. Confirm local frontend-backend connection
-
-For local development, `src/App.tsx` should point to the local backend:
-
-```ts
-const API_BASE = "http://127.0.0.1:8000";
-```
-
-When the frontend loads, it should be able to call the local backend health endpoint.
-
----
-
-### 5. Build locally
-
-To create a production build:
-
-```bash
-npm run build
-```
-
-To preview the production build locally:
-
-```bash
-npm run preview
-```
 
 ## Demo
 
