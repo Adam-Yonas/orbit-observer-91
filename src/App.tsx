@@ -26,7 +26,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-          <BrowserRouter basename="/orbit-observer-91">
+          <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "") || "/"}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="*" element={<NotFound />} />
