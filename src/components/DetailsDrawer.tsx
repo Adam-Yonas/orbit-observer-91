@@ -71,12 +71,12 @@ export function DetailsDrawer({ obj, onClose, onCascade, isCascading }: Props) {
           <div className="text-xs font-mono text-primary uppercase tracking-wider">
             {obj.kind.replace("_", " ")}
           </div>
-          <h3 className="text-lg font-semibold mt-1">{obj.name}</h3>
+          <h2 className="text-lg font-semibold mt-1">{obj.name}</h2>
           <div className="text-xs text-muted-foreground font-mono mt-1">
             {obj.id} · {obj.country}
           </div>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} aria-label="Close object details" className="text-muted-foreground hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       </div>

@@ -1,0 +1,9 @@
+# Orbital Watch
+
+> Real-time 3D dashboard for tracking space debris and satellites in Earth orbit, with an agentic AI co-pilot, Kessler-cascade simulation, and a launch planner.
+
+Orbital Watch streams live TLEs from CelesTrak, propagates ~5,000+ objects with SGP4 in the browser, and renders them on a WebGL globe. You can scrub time ±12h, filter by class and altitude, inspect any object, simulate breakup cascades, and plan a conflict-free launch orbit.
+
+## Pages
+
+- [Orbital Watch dashboard](/): Live globe, filters, altitude chart, launch simulator, Kessler cascade, AI co-pilot.

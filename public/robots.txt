@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://orbit-observer-91.lovable.app/sitemap.xml

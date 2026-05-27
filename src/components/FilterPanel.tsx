@@ -30,7 +30,8 @@ export function FilterPanel({ filters, setFilters, catalog, visibleCount }: Prop
   };
 
   return (
-    <div className="absolute left-4 top-20 w-72 panel rounded-lg p-5 z-20 space-y-5">
+    <section className="absolute left-4 top-20 w-72 panel rounded-lg p-5 z-20 space-y-5" aria-label="Filters">
+      <h2 className="sr-only">Catalog filters</h2>
       <div>
         <div className="text-xs font-mono text-primary uppercase tracking-wider mb-3">
           Object Class
@@ -94,7 +95,7 @@ export function FilterPanel({ filters, setFilters, catalog, visibleCount }: Prop
           </span>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 

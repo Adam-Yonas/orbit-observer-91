@@ -138,11 +138,11 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Rocket className="w-4 h-4" style={{ color: "#84cc16" }} />
-          <div className="text-xs font-mono uppercase tracking-wider" style={{ color: "#84cc16" }}>
+          <h2 className="text-xs font-mono uppercase tracking-wider" style={{ color: "#84cc16" }}>
             Launch Simulator
-          </div>
+          </h2>
         </div>
-        <button onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
+        <button onClick={() => setOpen(false)} aria-label="Close launch simulator" className="text-xs text-muted-foreground hover:text-foreground">
           ×
         </button>
       </header>
@@ -202,6 +202,7 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
         {userObject && (
           <button
             onClick={clearUserObject}
+            aria-label="Remove user satellite"
             className="px-2.5 py-2 rounded border border-border text-muted-foreground hover:text-danger hover:border-danger/60"
             title="Remove user satellite"
           >

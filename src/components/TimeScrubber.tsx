@@ -36,18 +36,21 @@ export function TimeScrubber({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setOffsetMin(offsetMin - 30)}
+            aria-label="Rewind 30 minutes"
             className="p-1.5 rounded hover:bg-secondary transition-colors"
           >
             <Rewind className="w-4 h-4" />
           </button>
           <button
             onClick={() => setPlaying(!playing)}
+            aria-label={playing ? "Pause time" : "Play time"}
             className="p-2 rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
           >
             {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setOffsetMin(offsetMin + 30)}
+            aria-label="Fast-forward 30 minutes"
             className="p-1.5 rounded hover:bg-secondary transition-colors"
           >
             <FastForward className="w-4 h-4" />
