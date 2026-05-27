@@ -135,7 +135,7 @@ export function Copilot({ catalog, externalPrompt }: Props) {
             <Bot className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <div className="text-sm font-semibold leading-tight">Orbital Co-pilot</div>
+            <h2 className="text-sm font-semibold leading-tight">Orbital Co-pilot</h2>
             <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
               Gemini 2.5 · agentic tools
             </div>
@@ -143,6 +143,7 @@ export function Copilot({ catalog, externalPrompt }: Props) {
         </div>
         <button
           onClick={() => setOpen(false)}
+          aria-label="Close co-pilot"
           className="text-muted-foreground hover:text-foreground"
         >
           <X className="w-4 h-4" />
@@ -214,11 +215,13 @@ export function Copilot({ catalog, externalPrompt }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about the catalog…"
+          aria-label="Ask the co-pilot about the catalog"
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           disabled={loading}
         />
         <button
           type="submit"
+          aria-label="Send message"
           disabled={loading || !input.trim()}
           className="p-1.5 rounded bg-primary text-primary-foreground disabled:opacity-40"
         >

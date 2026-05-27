@@ -21,6 +21,7 @@ export function AboutPanel() {
       <div className="panel rounded-lg max-w-xl w-full max-h-[85vh] overflow-y-auto p-6 relative">
         <button
           onClick={() => setOpen(false)}
+          aria-label="Close about panel"
           className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
         >
           <X className="w-4 h-4" />

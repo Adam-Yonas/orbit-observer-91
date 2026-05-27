@@ -218,6 +218,7 @@ const Index = () => {
           <div>
             <h1 className="text-base font-semibold tracking-tight">
               ORBITAL <span className="text-primary text-glow">WATCH</span>
+              <span className="sr-only"> — Live Space Debris Tracker</span>
             </h1>
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
               Live space debris tracker · v1.0

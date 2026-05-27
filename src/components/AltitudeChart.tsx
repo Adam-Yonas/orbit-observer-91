@@ -36,10 +36,10 @@ export function AltitudeChart({ catalog, visibleIds }: Props) {
   }, [catalog, visibleIds]);
 
   return (
-    <div className="absolute right-4 bottom-40 w-80 panel rounded-lg p-4 z-10 hidden md:block">
-      <div className="text-xs font-mono text-primary uppercase tracking-wider mb-2">
+    <section className="absolute right-4 bottom-40 w-80 panel rounded-lg p-4 z-10 hidden md:block" aria-label="Altitude density chart">
+      <h2 className="text-xs font-mono text-primary uppercase tracking-wider mb-2">
         Altitude Density (km)
-      </div>
+      </h2>
       <ResponsiveContainer width="100%" height={120}>
         <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
           <XAxis
@@ -64,6 +64,6 @@ export function AltitudeChart({ catalog, visibleIds }: Props) {
           <Bar dataKey="payload" stackId="a" fill="#22d3ee" />
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </section>
   );
 }
