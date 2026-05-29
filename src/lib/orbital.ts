@@ -303,13 +303,91 @@ function randomUnitVector(): { x: number; y: number; z: number } {
   return { x: s * Math.cos(theta), y: s * Math.sin(theta), z: u };
 }
 
-// Power-law sample on [min, max] with exponent α (NASA SBM uses α ≈ -2.6
-// for size; we apply a similar shape to delta-v magnitudes so most fragments
-// are slow and a few are fast).
-function powerLawSample(min: number, max: number, alpha = -2.0): number {
+// ---------------------------------------------------------------------------
+// NASA Standard Breakup Model (SBM, EVOLVE 4.0 / Johnson et al. 2001)
+// ---------------------------------------------------------------------------
+// Real on-orbit breakups are governed by three coupled distributions:
+//   1. Fragment SIZE (characteristic length L_c) follows a power law.
+//   2. The area-to-mass ratio (A/M) of each fragment is a log-normal whose
+//      parameters depend on L_c.
+//   3. The ejection Δv is a log-normal whose MEAN depends on log10(A/M):
+//          μ_v = 0.9·log10(A/M) + 2.9   (collisions),   σ_v = 0.4   [Δv in m/s]
+// The crucial physical consequence: small, high-A/M fragments receive Δv of
+// hundreds of m/s up to several km/s — enough to land them on completely
+// different orbits. We sample each fragment's Δv from this distribution, add it
+// as a true 3-D velocity change to the parent's state vector, then recompute
+// the resulting Keplerian orbit so every fragment genuinely flies onto and
+// stays on its own post-collision orbit (no snapping back to the parent orbit).
+
+// Standard-normal sample (Box–Muller).
+function gaussian(mean = 0, sigma = 1): number {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mean + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// Sample a characteristic length L_c (m) from the SBM size power law
+// N(>L_c) ∝ L_c^(-1.71)  via inverse-CDF on [minLc, maxLc].
+function sampleCharLength(minLc: number, maxLc: number): number {
+  const beta = -1.71;
+  const b1 = beta + 1; // exponent for the CDF
   const r = Math.random();
-  const a1 = alpha + 1;
-  return Math.pow(r * (Math.pow(max, a1) - Math.pow(min, a1)) + Math.pow(min, a1), 1 / a1);
+  const lo = Math.pow(minLc, b1);
+  const hi = Math.pow(maxLc, b1);
+  return Math.pow(r * (hi - lo) + lo, 1 / b1);
+}
+
+// SBM area-to-mass distribution for small debris (L_c ≲ 11 cm): a single
+// log-normal in χ = log10(A/M) whose mean/σ depend on λ_c = log10(L_c).
+// Returns A/M in m²/kg. (Johnson et al. 2001, small-object branch.)
+function sampleAreaToMass(lcMeters: number): number {
+  const lambdaC = Math.log10(Math.max(lcMeters, 1e-4));
+
+  // Mean μ(λ_c)
+  let mu: number;
+  if (lambdaC <= -1.75) mu = -0.3;
+  else if (lambdaC < -1.25) mu = -0.3 - 1.4 * (lambdaC + 1.75);
+  else mu = -1.0;
+
+  // Std-dev σ(λ_c)
+  let sigma: number;
+  if (lambdaC <= -3.5) sigma = 0.2;
+  else sigma = 0.2 + 0.1333 * (lambdaC + 3.5);
+
+  const chi = gaussian(mu, sigma); // = log10(A/M)
+  return Math.pow(10, chi); // m²/kg
+}
+
+// SBM ejection-velocity distribution for collisions.
+//   log10(Δv [m/s]) ~ N(0.9·χ + 2.9, 0.4),  χ = log10(A/M)
+// Returns Δv in km/s.
+function sampleDeltaV(areaToMass: number): number {
+  const chi = Math.log10(Math.max(areaToMass, 1e-6));
+  const muV = 0.9 * chi + 2.9;
+  const sigmaV = 0.4;
+  const logV = gaussian(muV, sigmaV); // log10(Δv) in m/s
+  const vMs = Math.pow(10, logV);
+  return vMs / 1000; // km/s
+}
+
+// Sample a unit vector inside a cone of half-angle `coneRad` about `axis`,
+// using the supplied orthonormal basis (bx, by) perpendicular to `axis`.
+function sampleInCone(
+  axis: { x: number; y: number; z: number },
+  bx: { x: number; y: number; z: number },
+  by: { x: number; y: number; z: number },
+  cosConeMin: number
+): { x: number; y: number; z: number } {
+  const u = cosConeMin + Math.random() * (1 - cosConeMin); // cos(theta)
+  const sinT = Math.sqrt(Math.max(0, 1 - u * u));
+  const phi = Math.random() * 2 * Math.PI;
+  return {
+    x: axis.x * u + (bx.x * Math.cos(phi) + by.x * Math.sin(phi)) * sinT,
+    y: axis.y * u + (bx.y * Math.cos(phi) + by.y * Math.sin(phi)) * sinT,
+    z: axis.z * u + (bx.z * Math.cos(phi) + by.z * Math.sin(phi)) * sinT,
+  };
 }
 
 export function spawnFragments(
@@ -328,22 +406,34 @@ export function spawnFragments(
   const r0 = pv.position as satellite.EciVec3<number>;
   const v0 = pv.velocity as satellite.EciVec3<number>;
 
-  // Characteristic delta-v from kinetic-energy / momentum coupling:
-  //   Δv_target ≈ (m_impactor / m_target) · v_rel
-  // We then spread fragment kicks over a power-law around this scale so that
-  // most pieces stay near the original orbit and a small tail is hurled into
-  // very different orbits — the visual signature of a real Kessler event.
   const targetMass = params.targetMassKg ?? inferMassKg(parent.kind);
-  const dvScale = Math.max(
-    0.05,
-    Math.min(4.0, (params.impactorMassKg / targetMass) * params.impactorVelKms)
-  ); // km/s, clamped so we don't immediately escape Earth
 
-  // Build the parent's local VNC (Velocity-Normal-Co-normal) frame so the
-  // impactor direction is expressed relative to how the parent is moving.
-  //   V̂ = velocity unit vector
-  //   N̂ = (r × v) unit  (orbit normal)
-  //   Ĉ = V̂ × N̂        (completes the right-handed frame, ~radial)
+  // --- Classify the event (catastrophic vs non-catastrophic) per SBM. ---
+  // Specific impact energy E_p/M_t in J/g. ≥ 40 J/g ⇒ catastrophic breakup.
+  const vImpMs = params.impactorVelKms * 1000; // m/s
+  const keJoules = 0.5 * params.impactorMassKg * vImpMs * vImpMs;
+  const specificEnergy = keJoules / (targetMass * 1000); // J/g
+  const catastrophic = specificEnergy >= 40;
+
+  // Characteristic mass M (kg) driving the fragment-count power law.
+  //   catastrophic:     M = m_target + m_impactor
+  //   non-catastrophic: M = m_impactor · v_imp[km/s]
+  const characteristicMass = catastrophic
+    ? targetMass + params.impactorMassKg
+    : params.impactorMassKg * params.impactorVelKms;
+
+  // SBM cumulative count N(>L_c) = 0.1 · M^0.75 · L_c^(-1.71). Invert to find
+  // the smallest L_c that yields ~params.count fragments so our sampled size
+  // band matches the energy of the event.
+  const desired = Math.max(1, params.count);
+  const minLc = Math.pow(
+    desired / (0.1 * Math.pow(characteristicMass, 0.75)),
+    -1 / 1.71
+  );
+  const maxLc = catastrophic ? 1.0 : 0.25; // m (largest fragment we model)
+  const loLc = Math.max(0.001, Math.min(minLc, maxLc * 0.5));
+
+  // --- Parent local VNC frame for the (optional) directional impact bias. ---
   const vMag0 = Math.hypot(v0.x, v0.y, v0.z) || 1;
   const Vhat = { x: v0.x / vMag0, y: v0.y / vMag0, z: v0.z / vMag0 };
   const nx = r0.y * v0.z - r0.z * v0.y;
@@ -359,23 +449,18 @@ export function spawnFragments(
 
   const dirVNC = params.impactorDirVNC ?? { v: -1, n: 0, c: 0 };
   const dirMag = Math.hypot(dirVNC.v, dirVNC.n, dirVNC.c) || 1;
-  // Impactor velocity unit vector in ECI
-  const impactorHat = {
+  const biasDir = {
     x: (dirVNC.v * Vhat.x + dirVNC.n * Nhat.x + dirVNC.c * Chat.x) / dirMag,
     y: (dirVNC.v * Vhat.y + dirVNC.n * Nhat.y + dirVNC.c * Chat.y) / dirMag,
     z: (dirVNC.v * Vhat.z + dirVNC.n * Nhat.z + dirVNC.c * Chat.z) / dirMag,
   };
 
-  // Momentum-balance bias: post-impact target ΔV points along (m_i v_i + m_t v_t)
-  // minus v_t, normalized. We treat the parent as initially at rest in its own
-  // frame, so the bias direction is simply the impactor's velocity direction.
-  const biasDir = impactorHat;
-
-  // Cone half-angle (radians) for ejecta spread around the bias direction.
+  // Ejecta cone half-angle. 180° ⇒ fully isotropic (real catastrophic
+  // breakups are close to isotropic in the parent frame).
   const coneDeg = Math.max(5, Math.min(180, params.ejectaConeDeg ?? 180));
   const cosConeMin = Math.cos((coneDeg * Math.PI) / 180);
 
-  // Build an orthonormal basis around biasDir for cone sampling
+  // Orthonormal basis perpendicular to the bias direction (for cone sampling).
   const helper =
     Math.abs(biasDir.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
   const bx = {
@@ -392,78 +477,59 @@ export function spawnFragments(
   };
 
   const stamp = Date.now();
-  const epoch = (impactTime.getTime() - J2000) / 86400000 + 10957.5; // days since 1950-01-01 (TLE epoch)
   const epochYear = (impactTime.getUTCFullYear() % 100).toString().padStart(2, "0");
   const yearStart = Date.UTC(impactTime.getUTCFullYear(), 0, 1);
-  const epochDay = ((impactTime.getTime() - yearStart) / 86400000 + 1).toFixed(8).padStart(12, "0");
-  void epoch;
+  const epochDay = ((impactTime.getTime() - yearStart) / 86400000 + 1)
+    .toFixed(8)
+    .padStart(12, "0");
 
   const out: OrbitObject[] = [];
   let attempts = 0;
   let i = 0;
-  while (out.length < params.count && attempts < params.count * 5) {
+  while (out.length < params.count && attempts < params.count * 6) {
     attempts++;
     i++;
 
-    // Sample a unit vector inside the cone around biasDir
-    const u = cosConeMin + Math.random() * (1 - cosConeMin); // cos(theta)
-    const sinT = Math.sqrt(Math.max(0, 1 - u * u));
-    const phi = Math.random() * 2 * Math.PI;
+    // 1. Sample fragment size → A/M → SBM Δv magnitude (physically coupled).
+    const lc = sampleCharLength(loLc, maxLc);
+    const areaToMass = sampleAreaToMass(lc);
+    const dvMag = sampleDeltaV(areaToMass); // km/s
+
+    // 2. Ejection direction. Real breakups scatter ejecta nearly isotropically;
+    //    we bias around the impact direction by the chosen cone, then blend in
+    //    an isotropic component so the cloud never collapses into a line.
+    const coneDir = sampleInCone(biasDir, bx, by, cosConeMin);
+    const isoDir = randomUnitVector();
+    const isoMix = coneDeg >= 179 ? 1 : 0.4;
     const dir = {
-      x: biasDir.x * u + (bx.x * Math.cos(phi) + by.x * Math.sin(phi)) * sinT,
-      y: biasDir.y * u + (bx.y * Math.cos(phi) + by.y * Math.sin(phi)) * sinT,
-      z: biasDir.z * u + (bx.z * Math.cos(phi) + by.z * Math.sin(phi)) * sinT,
+      x: coneDir.x * (1 - isoMix) + isoDir.x * isoMix,
+      y: coneDir.y * (1 - isoMix) + isoDir.y * isoMix,
+      z: coneDir.z * (1 - isoMix) + isoDir.z * isoMix,
+    };
+    const dirNorm = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    dir.x /= dirNorm; dir.y /= dirNorm; dir.z /= dirNorm;
+
+    // 3. Apply the Δv as a real velocity change to the parent state vector.
+    const v1 = {
+      x: v0.x + dir.x * dvMag,
+      y: v0.y + dir.y * dvMag,
+      z: v0.z + dir.z * dvMag,
     };
 
-    
-    // Sample isotropic delta-v magnitude (power-law)
-    // Size-dependent delta-v:
-    // smaller fragments get larger kicks, larger fragments stay closer to the parent orbit.
-    const sizeFactor = Math.random();
-    const fragmentSizeScale = Math.pow(sizeFactor, 2.5);
-    
-    // km/s. Most fragments are slow, but some get larger energy changes.
-    const minDv = 0.005;
-    const maxDv = Math.max(0.08, dvScale * (1.5 + 4.0 * (1 - fragmentSizeScale)));
-    const dvMag = powerLawSample(minDv, maxDv, -1.7);
-    
-    // Add a small isotropic/random component so ejecta does not collapse into a single line.
-    const randomDir = randomUnitVector();
-    const isotropicMix = 0.35;
-    
-    const mixedDir = {
-      x: dir.x * (1 - isotropicMix) + randomDir.x * isotropicMix,
-      y: dir.y * (1 - isotropicMix) + randomDir.y * isotropicMix,
-      z: dir.z * (1 - isotropicMix) + randomDir.z * isotropicMix,
-    };
-    
-    const mixedMag = Math.hypot(mixedDir.x, mixedDir.y, mixedDir.z) || 1;
-    mixedDir.x /= mixedMag;
-    mixedDir.y /= mixedMag;
-    mixedDir.z /= mixedMag;
-    
-    const v1 = {
-      x: v0.x + mixedDir.x * dvMag,
-      y: v0.y + mixedDir.y * dvMag,
-      z: v0.z + mixedDir.z * dvMag,
-    };
-    
-    // Small initial 3D position scatter.
-    // This prevents all fragments from rendering as if they start from the exact same point.
-    const spreadKm = 3 + Math.random() * 12;
+    // Tiny position scatter (fragments originate from the finite-size target).
+    const spreadKm = 0.5 + Math.random() * 4;
     const posScatter = randomUnitVector();
-    
     const r1 = {
       x: r0.x + posScatter.x * spreadKm,
       y: r0.y + posScatter.y * spreadKm,
       z: r0.z + posScatter.z * spreadKm,
     };
-    
-    const kep = stateToKeplerian(r1, v1);
 
-    
-    if (!kep) continue;
-    if (kep.a * (1 - kep.e) < EARTH_RADIUS_KM + 120) continue; // perigee inside atmosphere
+    // 4. Resulting state vector → Keplerian orbit (this is what makes each
+    //    fragment stay on its OWN new orbit, not the parent's).
+    const kep = stateToKeplerian(r1, v1);
+    if (!kep) continue; // hyperbolic ⇒ fragment escaped Earth, drop it
+    if (kep.a * (1 - kep.e) < EARTH_RADIUS_KM + 120) continue; // re-enters atmosphere
 
     const periodSec = 2 * Math.PI * Math.sqrt((kep.a * kep.a * kep.a) / MU);
     if (!isFinite(periodSec) || periodSec < 60) continue;
