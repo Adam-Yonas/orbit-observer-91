@@ -375,7 +375,9 @@ function sampleDeltaV(areaToMass: number): number {
   const sigmaV = 0.5;
   const logV = gaussian(muV, sigmaV); // log10(Δv) in m/s
   const vMs = Math.pow(10, logV);
-  return vMs / 1000; // km/s
+  // Cap at ~3.5 km/s: real breakup ejecta almost never exceeds this, and larger
+  // values only produce hyperbolic (escaping) fragments that get discarded.
+  return Math.min(3.5, vMs / 1000); // km/s
 }
 
 // Encode a BSTAR drag term (1/Earth-radii) into the 7-char TLE exponential
