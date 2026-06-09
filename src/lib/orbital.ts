@@ -366,14 +366,18 @@ function sampleAreaToMass(lcMeters: number): number {
 function sampleDeltaV(areaToMass: number): number {
   const chi = Math.log10(Math.max(areaToMass, 1e-6));
   // SBM collision law μ_v = 0.9·χ + 2.9 keeps Δv small relative to the ~7.7 km/s
-  // orbital speed, so fragments barely leave the parent plane. We scale the mean
-  // up (+0.5 dex ≈ ×3) so the cloud genuinely disperses out of plane and spreads
-  // across distinct orbits, as the user wants to see, while staying log-normal.
-  const muV = 0.9 * chi + 3.4;
-  const sigmaV = 0.45;
+  // orbital speed, so fragments barely leave the parent plane and the cloud
+  // collapses into a thin line. We raise the mean (~+0.9 dex ≈ ×8) so a large
+  // fraction of fragments receive 0.3–2 km/s kicks — enough to change the
+  // orbital plane and energy and genuinely fly onto distinct orbits — while
+  // keeping the log-normal shape of the SBM distribution.
+  const muV = 0.9 * chi + 3.8;
+  const sigmaV = 0.5;
   const logV = gaussian(muV, sigmaV); // log10(Δv) in m/s
   const vMs = Math.pow(10, logV);
-  return vMs / 1000; // km/s
+  // Cap at ~3.5 km/s: real breakup ejecta almost never exceeds this, and larger
+  // values only produce hyperbolic (escaping) fragments that get discarded.
+  return Math.min(3.5, vMs / 1000); // km/s
 }
 
 // Encode a BSTAR drag term (1/Earth-radii) into the 7-char TLE exponential
@@ -529,7 +533,7 @@ export function spawnFragments(
     //    an isotropic component so the cloud never collapses into a line.
     const coneDir = sampleInCone(biasDir, bx, by, cosConeMin);
     const isoDir = randomUnitVector();
-    const isoMix = coneDeg >= 179 ? 1 : 0.4;
+    const isoMix = coneDeg >= 179 ? 1 : 0.7;
     const dir = {
       x: coneDir.x * (1 - isoMix) + isoDir.x * isoMix,
       y: coneDir.y * (1 - isoMix) + isoDir.y * isoMix,
