@@ -579,7 +579,8 @@ export function spawnFragments(
     const maStr = maDeg.toFixed(4).padStart(8, " ");
     const mmStr = meanMotion.toFixed(8).padStart(11, " ");
 
-    const l1 = `1 ${noradId}U 24001A   ${epochYear}${epochDay}  .00000000  00000-0  00000-0 0  9990`;
+    const bstarStr = encodeBstar(bstarFromAreaToMass(areaToMass));
+    const l1 = `1 ${noradId}U 24001A   ${epochYear}${epochDay}  .00000000  00000-0  ${bstarStr} 0  9990`;
     const l2 = `2 ${noradId} ${incStr} ${raanStr} ${eccStr} ${argpStr} ${maStr} ${mmStr}000010`;
     const obj = tleToObject(
       `frag-${stamp}-${i}`,
