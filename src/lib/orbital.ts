@@ -531,7 +531,7 @@ export function spawnFragments(
     //    an isotropic component so the cloud never collapses into a line.
     const coneDir = sampleInCone(biasDir, bx, by, cosConeMin);
     const isoDir = randomUnitVector();
-    const isoMix = coneDeg >= 179 ? 1 : 0.4;
+    const isoMix = coneDeg >= 179 ? 1 : 0.7;
     const dir = {
       x: coneDir.x * (1 - isoMix) + isoDir.x * isoMix,
       y: coneDir.y * (1 - isoMix) + isoDir.y * isoMix,
