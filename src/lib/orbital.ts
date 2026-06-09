@@ -376,6 +376,31 @@ function sampleDeltaV(areaToMass: number): number {
   return vMs / 1000; // km/s
 }
 
+// Encode a BSTAR drag term (1/Earth-radii) into the 7-char TLE exponential
+// field, e.g. 0.017 -> "17000-1" (= 0.17000e-1). Positive only (drag decays).
+function encodeBstar(b: number): string {
+  if (!isFinite(b) || b <= 0) return "00000-0";
+  const clamped = Math.min(0.99, b);
+  let exp = Math.floor(Math.log10(clamped)) + 1; // <= 0 for b < 1
+  let mant = Math.round((clamped / Math.pow(10, exp)) * 1e5);
+  if (mant >= 100000) {
+    mant = Math.round(mant / 10);
+    exp += 1;
+  }
+  const mantStr = mant.toString().padStart(5, "0");
+  return `${mantStr}-${Math.abs(exp)}`;
+}
+
+// Physical BSTAR from a fragment's area-to-mass ratio (m^2/kg):
+//   B* = (rho0 / 2) * Cd * (A/m),  Cd ~ 2.2,  rho0 = 0.157 kg/(m^2 * ER)
+// This makes low-perigee / high-A-to-m debris actually decay under SGP4 drag,
+// instead of orbiting forever, matching real on-orbit fragment lifetimes.
+function bstarFromAreaToMass(areaToMass: number): number {
+  const Cd = 2.2;
+  const rho0 = 0.157; // kg/(m^2 * Earth-radius)
+  return (rho0 / 2) * Cd * Math.max(0, areaToMass);
+}
+
 // Sample a unit vector inside a cone of half-angle `coneRad` about `axis`,
 // using the supplied orthonormal basis (bx, by) perpendicular to `axis`.
 function sampleInCone(
