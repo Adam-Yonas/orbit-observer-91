@@ -365,8 +365,12 @@ function sampleAreaToMass(lcMeters: number): number {
 // Returns Δv in km/s.
 function sampleDeltaV(areaToMass: number): number {
   const chi = Math.log10(Math.max(areaToMass, 1e-6));
-  const muV = 0.9 * chi + 2.9;
-  const sigmaV = 0.4;
+  // SBM collision law μ_v = 0.9·χ + 2.9 keeps Δv small relative to the ~7.7 km/s
+  // orbital speed, so fragments barely leave the parent plane. We scale the mean
+  // up (+0.5 dex ≈ ×3) so the cloud genuinely disperses out of plane and spreads
+  // across distinct orbits, as the user wants to see, while staying log-normal.
+  const muV = 0.9 * chi + 3.4;
+  const sigmaV = 0.45;
   const logV = gaussian(muV, sigmaV); // log10(Δv) in m/s
   const vMs = Math.pow(10, logV);
   return vMs / 1000; // km/s
