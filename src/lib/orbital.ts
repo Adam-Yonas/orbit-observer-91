@@ -533,7 +533,7 @@ export function spawnFragments(
     //    fragment stay on its OWN new orbit, not the parent's).
     const kep = stateToKeplerian(r1, v1);
     if (!kep) continue; // hyperbolic ⇒ fragment escaped Earth, drop it
-    if (kep.a * (1 - kep.e) < EARTH_RADIUS_KM + 120) continue; // re-enters atmosphere
+    if (kep.a * (1 - kep.e) < EARTH_RADIUS_KM + 90) continue; // re-enters atmosphere
 
     const periodSec = 2 * Math.PI * Math.sqrt((kep.a * kep.a * kep.a) / MU);
     if (!isFinite(periodSec) || periodSec < 60) continue;
