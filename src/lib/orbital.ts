@@ -511,6 +511,19 @@ export function spawnFragmentsDetailed(
     z: (dirVNC.v * Vhat.z + dirVNC.n * Nhat.z + dirVNC.c * Chat.z) / dirMag,
   };
 
+  // Model the imaginary impactor mass as a solid steel CUBE striking the
+  // rough-shaped steel target. The collision geometry drives each fragment's
+  // ejection direction and the net momentum kick; the SBM still sets speeds.
+  const impact = simulateImpact({
+    r0: { x: r0.x, y: r0.y, z: r0.z },
+    impactDirEci: biasDir,
+    impactorMassKg: params.impactorMassKg,
+    vRelKms: params.impactorVelKms,
+    targetMassKg: targetMass,
+    targetKind: parent.kind,
+    catastrophic,
+  });
+
   // Ejecta cone half-angle. 180° ⇒ fully isotropic (real catastrophic
   // breakups are close to isotropic in the parent frame).
   const coneDeg = Math.max(5, Math.min(180, params.ejectaConeDeg ?? 180));
