@@ -141,7 +141,7 @@ const Index = () => {
       toast.error("Could not find selected object");
       return;
     }
-    const fragments = spawnFragments(
+    const { fragments, collision } = spawnFragmentsDetailed(
       parent,
       {
         count: inputs.count,
@@ -152,6 +152,11 @@ const Index = () => {
       },
       time
     );
+    // Trigger the break-apart animation at the impact site.
+    if (collision) {
+      setCollisionEvent({ ...collision, key: Date.now() });
+      window.setTimeout(() => setCollisionEvent(null), 3000);
+    }
     if (fragments.length === 0) {
       toast.error("Cascade failed — fragments escaped or decayed");
       return;
