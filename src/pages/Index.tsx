@@ -8,7 +8,7 @@ import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
 import { LaunchPanel } from "@/components/LaunchPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragments, runChainReactionAsync, type Conjunction } from "@/lib/orbital";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragmentsDetailed, runChainReactionAsync, type Conjunction, type CollisionEvent } from "@/lib/orbital";
 import type { CascadeInputs } from "@/components/DetailsDrawer";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cascadeIds, setCascadeIds] = useState<Set<string>>(new Set());
   const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [collisionEvent, setCollisionEvent] = useState<(CollisionEvent & { key: number }) | null>(null);
   const [userObject, setUserObject] = useState<OrbitObject | null>(null);
   const [conjunctions, setConjunctions] = useState<Conjunction[]>([]);
   const [copilotPrompt, setCopilotPrompt] = useState<{ text: string; nonce: number } | null>(null);
@@ -141,7 +142,7 @@ const Index = () => {
       toast.error("Could not find selected object");
       return;
     }
-    const fragments = spawnFragments(
+    const { fragments, collision } = spawnFragmentsDetailed(
       parent,
       {
         count: inputs.count,
@@ -152,6 +153,11 @@ const Index = () => {
       },
       time
     );
+    // Trigger the break-apart animation at the impact site.
+    if (collision) {
+      setCollisionEvent({ ...collision, key: Date.now() });
+      window.setTimeout(() => setCollisionEvent(null), 3000);
+    }
     if (fragments.length === 0) {
       toast.error("Cascade failed — fragments escaped or decayed");
       return;
@@ -280,6 +286,7 @@ const Index = () => {
             selectedId={selectedId}
             onSelect={setSelectedId}
             cascadeIds={cascadeIds}
+            collisionEvent={collisionEvent}
           />
         )}
       </div>

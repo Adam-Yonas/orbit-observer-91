@@ -1,5 +1,8 @@
 import * as satellite from "satellite.js";
 import { BACKEND_URL } from "./backend";
+import { simulateImpact, type CollisionEvent } from "./collision";
+
+export type { CollisionEvent } from "./collision";
 
 export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
@@ -426,11 +429,27 @@ function sampleInCone(
   };
 }
 
+export interface SpawnResult {
+  fragments: OrbitObject[];
+  collision: CollisionEvent | null;
+}
+
+// Backward-compatible wrapper: returns just the fragment list.
 export function spawnFragments(
   parent: OrbitObject,
   paramsOrCount: CascadeParams | number = 80,
   impactTime: Date = new Date()
 ): OrbitObject[] {
+  return spawnFragmentsDetailed(parent, paramsOrCount, impactTime).fragments;
+}
+
+// Full version: also returns the modelled steel-on-steel collision event so the
+// renderer can animate the two bodies breaking apart at the impact site.
+export function spawnFragmentsDetailed(
+  parent: OrbitObject,
+  paramsOrCount: CascadeParams | number = 80,
+  impactTime: Date = new Date()
+): SpawnResult {
   const params: CascadeParams =
     typeof paramsOrCount === "number"
       ? { count: paramsOrCount, impactorMassKg: 100, impactorVelKms: 10 }
@@ -438,7 +457,8 @@ export function spawnFragments(
 
   // Get parent ECI state at impact (km, km/s)
   const pv = satellite.propagate(parent.satrec, impactTime);
-  if (!pv || !pv.position || !pv.velocity || typeof pv.position === "boolean") return [];
+  if (!pv || !pv.position || !pv.velocity || typeof pv.position === "boolean")
+    return { fragments: [], collision: null };
   const r0 = pv.position as satellite.EciVec3<number>;
   const v0 = pv.velocity as satellite.EciVec3<number>;
 
@@ -491,6 +511,19 @@ export function spawnFragments(
     z: (dirVNC.v * Vhat.z + dirVNC.n * Nhat.z + dirVNC.c * Chat.z) / dirMag,
   };
 
+  // Model the imaginary impactor mass as a solid steel CUBE striking the
+  // rough-shaped steel target. The collision geometry drives each fragment's
+  // ejection direction and the net momentum kick; the SBM still sets speeds.
+  const impact = simulateImpact({
+    r0: { x: r0.x, y: r0.y, z: r0.z },
+    impactDirEci: biasDir,
+    impactorMassKg: params.impactorMassKg,
+    vRelKms: params.impactorVelKms,
+    targetMassKg: targetMass,
+    targetKind: parent.kind,
+    catastrophic,
+  });
+
   // Ejecta cone half-angle. 180° ⇒ fully isotropic (real catastrophic
   // breakups are close to isotropic in the parent frame).
   const coneDeg = Math.max(5, Math.min(180, params.ejectaConeDeg ?? 180));
@@ -522,7 +555,7 @@ export function spawnFragments(
   const out: OrbitObject[] = [];
   let attempts = 0;
   let i = 0;
-  while (out.length < params.count && attempts < params.count * 6) {
+  while (out.length < params.count && attempts < params.count * 20) {
     attempts++;
     i++;
 
@@ -531,25 +564,32 @@ export function spawnFragments(
     const areaToMass = sampleAreaToMass(lc);
     const dvMag = sampleDeltaV(areaToMass); // km/s
 
-    // 2. Ejection direction. Real breakups scatter ejecta nearly isotropically;
-    //    we bias around the impact direction by the chosen cone, then blend in
-    //    an isotropic component so the cloud never collapses into a line.
-    const coneDir = sampleInCone(biasDir, bx, by, cosConeMin);
-    const isoDir = randomUnitVector();
-    const isoMix = coneDeg >= 179 ? 1 : 0.7;
-    const dir = {
-      x: coneDir.x * (1 - isoMix) + isoDir.x * isoMix,
-      y: coneDir.y * (1 - isoMix) + isoDir.y * isoMix,
-      z: coneDir.z * (1 - isoMix) + isoDir.z * isoMix,
-    };
+    // 2. Ejection direction comes from the steel-on-steel collision model:
+    //    where the fragment originated relative to the impact point sets which
+    //    way it sprays (shock-radial + spall back-splash + downrange plume).
+    const frag = impact.sampleFragment();
+    const dir = { ...frag.dir };
+    // Optional focusing: a tighter ejecta cone blends the collision direction
+    // toward the impact axis so the user can model a directed debris jet.
+    if (coneDeg < 179) {
+      const focus = sampleInCone(biasDir, bx, by, cosConeMin);
+      const w = 1 - coneDeg / 180; // 0 (wide) .. ~1 (narrow)
+      dir.x = dir.x * (1 - w) + focus.x * w;
+      dir.y = dir.y * (1 - w) + focus.y * w;
+      dir.z = dir.z * (1 - w) + focus.z * w;
+    }
     const dirNorm = Math.hypot(dir.x, dir.y, dir.z) || 1;
     dir.x /= dirNorm; dir.y /= dirNorm; dir.z /= dirNorm;
 
-    // 3. Apply the Δv as a real velocity change to the parent state vector.
+    // Near-impact fragments are shocked harder, so scale their SBM speed up.
+    const dv = Math.min(1.5, dvMag * frag.speedScale);
+
+    // 3. Apply Δv as a velocity change to the parent state vector, plus the
+    //    net centre-of-mass kick from momentum transfer of the impactor.
     const v1 = {
-      x: v0.x + dir.x * dvMag,
-      y: v0.y + dir.y * dvMag,
-      z: v0.z + dir.z * dvMag,
+      x: v0.x + dir.x * dv + impact.vComKickKms.x,
+      y: v0.y + dir.y * dv + impact.vComKickKms.y,
+      z: v0.z + dir.z * dv + impact.vComKickKms.z,
     };
 
     // Tiny position scatter (fragments originate from the finite-size target).
@@ -603,7 +643,7 @@ export function spawnFragments(
     obj.risk = 0.9;
     out.push(obj);
   }
-  return out;
+  return { fragments: out, collision: impact.event };
 }
 
 // ---------------------------------------------------------------------------
