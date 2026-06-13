@@ -283,6 +283,144 @@ function UserObjects({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Break-apart animation: shows the steel cube striking the target body at the
+// impact site, then both bodies shattering into chunks that fly out along the
+// exact ejection directions the collision model produced.
+// ---------------------------------------------------------------------------
+const KM_TO_UNITS = EARTH_RADIUS_UNITS / EARTH_RADIUS_KM;
+const COLLISION_DUR = 3; // seconds
+
+function CollisionScene({ event }: { event: CollisionEvent & { key: number } }) {
+  const group = useRef<THREE.Group>(null);
+  const start = useRef(0);
+  const chunkRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const impactorRef = useRef<THREE.Mesh>(null);
+  const targetRef = useRef<THREE.Mesh>(null);
+  const flashRef = useRef<THREE.Mesh>(null);
+
+  const pos = useMemo(
+    () =>
+      new THREE.Vector3(
+        event.positionEci.x,
+        event.positionEci.z,
+        -event.positionEci.y
+      ).multiplyScalar(KM_TO_UNITS),
+    [event.key]
+  );
+  const impactDirScene = useMemo(
+    () =>
+      new THREE.Vector3(
+        event.impactDirEci.x,
+        event.impactDirEci.z,
+        -event.impactDirEci.y
+      ).normalize(),
+    [event.key]
+  );
+  const chunkDirs = useMemo(
+    () =>
+      event.chunks.map((c) =>
+        new THREE.Vector3(c.dir.x, c.dir.z, -c.dir.y).normalize()
+      ),
+    [event.key]
+  );
+
+  useEffect(() => {
+    start.current = 0;
+  }, [event.key]);
+
+  useFrame((state) => {
+    if (start.current === 0) start.current = state.clock.elapsedTime;
+    const e = state.clock.elapsedTime - start.current;
+
+    // Phase 1: the impactor cube closes on the target.
+    const approach = Math.min(1, e / 0.6);
+    if (impactorRef.current) {
+      impactorRef.current.position.copy(
+        impactDirScene.clone().multiplyScalar(-0.18 * (1 - approach))
+      );
+      impactorRef.current.visible = e < 0.7;
+    }
+    if (targetRef.current) targetRef.current.visible = e < 0.65;
+
+    // Phase 2: impact flash.
+    if (flashRef.current) {
+      const f = e >= 0.55 && e < 0.95 ? 1 - (e - 0.55) / 0.4 : 0;
+      flashRef.current.scale.setScalar(0.03 + 0.2 * (1 - f));
+      (flashRef.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, f);
+      flashRef.current.visible = f > 0;
+    }
+
+    // Phase 3: chunks fly out along their ejection directions and fade.
+    const frag = Math.max(0, (e - 0.6) / (COLLISION_DUR - 0.6));
+    for (let i = 0; i < chunkRefs.current.length; i++) {
+      const m = chunkRefs.current[i];
+      if (!m) continue;
+      const c = event.chunks[i];
+      const dist = frag * (0.05 + c.speed * 0.3);
+      m.position.copy(chunkDirs[i].clone().multiplyScalar(dist));
+      m.visible = e > 0.55;
+      (m.material as THREE.MeshStandardMaterial).opacity = Math.max(0, 1 - frag);
+    }
+
+    if (group.current) group.current.visible = e < COLLISION_DUR;
+  });
+
+  const isCyl = event.target.shape === "cylinder";
+
+  return (
+    <group ref={group} position={pos}>
+      {/* steel target body (rough shape) */}
+      <mesh ref={targetRef}>
+        {isCyl ? (
+          <cylinderGeometry args={[0.03, 0.03, 0.1, 16]} />
+        ) : (
+          <boxGeometry args={[0.06, 0.06, 0.045]} />
+        )}
+        <meshStandardMaterial color="#9aa4b2" metalness={0.9} roughness={0.35} />
+      </mesh>
+
+      {/* steel impactor cube */}
+      <mesh ref={impactorRef}>
+        <boxGeometry args={[0.03, 0.03, 0.03]} />
+        <meshStandardMaterial color="#dbe3ee" metalness={0.95} roughness={0.22} />
+      </mesh>
+
+      {/* impact flash */}
+      <mesh ref={flashRef}>
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshBasicMaterial
+          color="#fff1c0"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* flying steel chunks */}
+      {event.chunks.map((c, i) => (
+        <mesh
+          key={i}
+          ref={(el) => {
+            chunkRefs.current[i] = el;
+          }}
+          visible={false}
+        >
+          <boxGeometry args={[0.012 + c.speed * 0.01, 0.01, 0.009]} />
+          <meshStandardMaterial
+            color={c.body === "impactor" ? "#dbe3ee" : "#9aa4b2"}
+            metalness={0.9}
+            roughness={0.4}
+            transparent
+            opacity={1}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function Globe(props: GlobeProps) {
   return (
     <Canvas
