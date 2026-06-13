@@ -429,11 +429,27 @@ function sampleInCone(
   };
 }
 
+export interface SpawnResult {
+  fragments: OrbitObject[];
+  collision: CollisionEvent | null;
+}
+
+// Backward-compatible wrapper: returns just the fragment list.
 export function spawnFragments(
   parent: OrbitObject,
   paramsOrCount: CascadeParams | number = 80,
   impactTime: Date = new Date()
 ): OrbitObject[] {
+  return spawnFragmentsDetailed(parent, paramsOrCount, impactTime).fragments;
+}
+
+// Full version: also returns the modelled steel-on-steel collision event so the
+// renderer can animate the two bodies breaking apart at the impact site.
+export function spawnFragmentsDetailed(
+  parent: OrbitObject,
+  paramsOrCount: CascadeParams | number = 80,
+  impactTime: Date = new Date()
+): SpawnResult {
   const params: CascadeParams =
     typeof paramsOrCount === "number"
       ? { count: paramsOrCount, impactorMassKg: 100, impactorVelKms: 10 }
