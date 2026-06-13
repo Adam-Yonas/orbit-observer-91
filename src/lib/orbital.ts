@@ -582,7 +582,7 @@ export function spawnFragmentsDetailed(
     dir.x /= dirNorm; dir.y /= dirNorm; dir.z /= dirNorm;
 
     // Near-impact fragments are shocked harder, so scale their SBM speed up.
-    const dv = dvMag * frag.speedScale;
+    const dv = Math.min(1.5, dvMag * frag.speedScale);
 
     // 3. Apply Δv as a velocity change to the parent state vector, plus the
     //    net centre-of-mass kick from momentum transfer of the impactor.
