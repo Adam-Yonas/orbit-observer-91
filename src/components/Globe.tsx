@@ -435,6 +435,9 @@ export function Globe(props: GlobeProps) {
       <Earth />
       <DebrisCloud {...props} />
       <UserObjects catalog={props.catalog} visibleIds={props.visibleIds} time={props.time} />
+      {props.collisionEvent && (
+        <CollisionScene key={props.collisionEvent.key} event={props.collisionEvent} />
+      )}
       <OrbitControls
         enablePan={false}
         minDistance={1.6}
