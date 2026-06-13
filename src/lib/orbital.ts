@@ -1,5 +1,8 @@
 import * as satellite from "satellite.js";
 import { BACKEND_URL } from "./backend";
+import { simulateImpact, type CollisionEvent } from "./collision";
+
+export type { CollisionEvent } from "./collision";
 
 export type DebrisKind = "payload" | "rocket_body" | "debris" | "user";
 
