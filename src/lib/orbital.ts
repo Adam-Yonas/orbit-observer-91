@@ -551,25 +551,32 @@ export function spawnFragmentsDetailed(
     const areaToMass = sampleAreaToMass(lc);
     const dvMag = sampleDeltaV(areaToMass); // km/s
 
-    // 2. Ejection direction. Real breakups scatter ejecta nearly isotropically;
-    //    we bias around the impact direction by the chosen cone, then blend in
-    //    an isotropic component so the cloud never collapses into a line.
-    const coneDir = sampleInCone(biasDir, bx, by, cosConeMin);
-    const isoDir = randomUnitVector();
-    const isoMix = coneDeg >= 179 ? 1 : 0.7;
-    const dir = {
-      x: coneDir.x * (1 - isoMix) + isoDir.x * isoMix,
-      y: coneDir.y * (1 - isoMix) + isoDir.y * isoMix,
-      z: coneDir.z * (1 - isoMix) + isoDir.z * isoMix,
-    };
+    // 2. Ejection direction comes from the steel-on-steel collision model:
+    //    where the fragment originated relative to the impact point sets which
+    //    way it sprays (shock-radial + spall back-splash + downrange plume).
+    const frag = impact.sampleFragment();
+    const dir = { ...frag.dir };
+    // Optional focusing: a tighter ejecta cone blends the collision direction
+    // toward the impact axis so the user can model a directed debris jet.
+    if (coneDeg < 179) {
+      const focus = sampleInCone(biasDir, bx, by, cosConeMin);
+      const w = 1 - coneDeg / 180; // 0 (wide) .. ~1 (narrow)
+      dir.x = dir.x * (1 - w) + focus.x * w;
+      dir.y = dir.y * (1 - w) + focus.y * w;
+      dir.z = dir.z * (1 - w) + focus.z * w;
+    }
     const dirNorm = Math.hypot(dir.x, dir.y, dir.z) || 1;
     dir.x /= dirNorm; dir.y /= dirNorm; dir.z /= dirNorm;
 
-    // 3. Apply the Δv as a real velocity change to the parent state vector.
+    // Near-impact fragments are shocked harder, so scale their SBM speed up.
+    const dv = dvMag * frag.speedScale;
+
+    // 3. Apply Δv as a velocity change to the parent state vector, plus the
+    //    net centre-of-mass kick from momentum transfer of the impactor.
     const v1 = {
-      x: v0.x + dir.x * dvMag,
-      y: v0.y + dir.y * dvMag,
-      z: v0.z + dir.z * dvMag,
+      x: v0.x + dir.x * dv + impact.vComKickKms.x,
+      y: v0.y + dir.y * dv + impact.vComKickKms.y,
+      z: v0.z + dir.z * dv + impact.vComKickKms.z,
     };
 
     // Tiny position scatter (fragments originate from the finite-size target).
