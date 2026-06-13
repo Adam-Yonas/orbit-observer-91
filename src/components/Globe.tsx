@@ -3,6 +3,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { OrbitObject, propagate, EARTH_RADIUS_UNITS } from "@/lib/orbital";
+import type { CollisionEvent } from "@/lib/orbital";
 
 interface GlobeProps {
   catalog: OrbitObject[];
@@ -11,6 +12,7 @@ interface GlobeProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   cascadeIds: Set<string>;
+  collisionEvent?: (CollisionEvent & { key: number }) | null;
 }
 
 const COLORS = {
