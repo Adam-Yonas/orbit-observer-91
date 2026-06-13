@@ -643,7 +643,7 @@ export function spawnFragmentsDetailed(
     obj.risk = 0.9;
     out.push(obj);
   }
-  return out;
+  return { fragments: out, collision: impact.event };
 }
 
 // ---------------------------------------------------------------------------
