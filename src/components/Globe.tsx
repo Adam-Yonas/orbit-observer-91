@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
-import { OrbitObject, propagate, EARTH_RADIUS_UNITS } from "@/lib/orbital";
+import { OrbitObject, propagate, EARTH_RADIUS_UNITS, EARTH_RADIUS_KM } from "@/lib/orbital";
 import type { CollisionEvent } from "@/lib/orbital";
 
 interface GlobeProps {
