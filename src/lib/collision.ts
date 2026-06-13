@@ -169,7 +169,7 @@ export function simulateImpact(inp: ImpactInputs): CollisionModel {
 
     // Material closest to the impact point is shocked hardest → flies fastest.
     const proximity = 1 / (1 + distM / (0.5 * charL));
-    const speedScale = 0.6 + 1.4 * proximity; // ~0.6 (far) .. ~2.0 (at impact)
+    const speedScale = 0.7 + 0.7 * proximity; // ~0.7 (far) .. ~1.4 (at impact)
     return { dir, speedScale };
   };
 
