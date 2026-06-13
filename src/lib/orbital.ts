@@ -365,19 +365,22 @@ function sampleAreaToMass(lcMeters: number): number {
 // Returns Δv in km/s.
 function sampleDeltaV(areaToMass: number): number {
   const chi = Math.log10(Math.max(areaToMass, 1e-6));
-  // SBM collision law μ_v = 0.9·χ + 2.9 keeps Δv small relative to the ~7.7 km/s
-  // orbital speed, so fragments barely leave the parent plane and the cloud
-  // collapses into a thin line. We raise the mean (~+0.9 dex ≈ ×8) so a large
-  // fraction of fragments receive 0.3–2 km/s kicks — enough to change the
-  // orbital plane and energy and genuinely fly onto distinct orbits — while
-  // keeping the log-normal shape of the SBM distribution.
-  const muV = 0.9 * chi + 3.8;
-  const sigmaV = 0.5;
+  // NASA Standard Breakup Model (Johnson et al. 2001) collision ejection law:
+  //   log10(Δv [m/s]) ~ N(0.9·χ + 2.9, 0.4),  χ = log10(A/M).
+  // These are the *unmodified* SBM constants — this is what reproduces real
+  // measured debris clouds (Fengyun-1C, Iridium-33/Cosmos-2251), where the bulk
+  // of fragments stay within a few hundred km of the parent altitude and spread
+  // along-track into a torus, while a small high-A/M tail gets larger kicks.
+  // Inflating these constants to force a visually explosive spread produces
+  // apogees out near GEO, which is not physical.
+  const muV = 0.9 * chi + 2.9;
+  const sigmaV = 0.4;
   const logV = gaussian(muV, sigmaV); // log10(Δv) in m/s
   const vMs = Math.pow(10, logV);
-  // Cap at ~3.5 km/s: real breakup ejecta almost never exceeds this, and larger
-  // values only produce hyperbolic (escaping) fragments that get discarded.
-  return Math.min(3.5, vMs / 1000); // km/s
+  // Cap at 1.5 km/s. Real catastrophic-collision ejecta almost never exceeds
+  // this; the rare SBM tail beyond it only yields hyperbolic / GEO-grazing
+  // fragments that escape or get discarded by the perigee filter.
+  return Math.min(1.5, vMs / 1000); // km/s
 }
 
 // Encode a BSTAR drag term (1/Earth-radii) into the 7-char TLE exponential
