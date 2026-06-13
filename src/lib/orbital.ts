@@ -555,7 +555,7 @@ export function spawnFragmentsDetailed(
   const out: OrbitObject[] = [];
   let attempts = 0;
   let i = 0;
-  while (out.length < params.count && attempts < params.count * 6) {
+  while (out.length < params.count && attempts < params.count * 20) {
     attempts++;
     i++;
 
