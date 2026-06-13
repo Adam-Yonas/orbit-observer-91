@@ -286,6 +286,7 @@ const Index = () => {
             selectedId={selectedId}
             onSelect={setSelectedId}
             cascadeIds={cascadeIds}
+            collisionEvent={collisionEvent}
           />
         )}
       </div>
