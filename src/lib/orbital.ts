@@ -457,7 +457,8 @@ export function spawnFragmentsDetailed(
 
   // Get parent ECI state at impact (km, km/s)
   const pv = satellite.propagate(parent.satrec, impactTime);
-  if (!pv || !pv.position || !pv.velocity || typeof pv.position === "boolean") return [];
+  if (!pv || !pv.position || !pv.velocity || typeof pv.position === "boolean")
+    return { fragments: [], collision: null };
   const r0 = pv.position as satellite.EciVec3<number>;
   const v0 = pv.velocity as satellite.EciVec3<number>;
 
