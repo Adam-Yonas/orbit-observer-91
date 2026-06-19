@@ -134,79 +134,72 @@ const Index = () => {
     [renderedCatalog, selectedId]
   );
 
-  // Kessler cascade: spawn fragments from the chosen object's current position
-  const triggerCascade = async (id: string, inputs: CascadeInputs) => {
+  // Launch-driven collision: the user's launched body strikes a catalog object
+  // at the conjunction time. Relative velocity + geometry come from the orbits
+  // and the chosen spacecraft body — no imaginary impactor mass.
+  const triggerLaunchCollision = async (
+    victimId: string,
+    body: SpacecraftBody,
+    collisionTime: Date
+  ) => {
     if (cascadeRunning) return;
-    const parent = renderedCatalog.find((o) => o.id === id);
-    if (!parent) {
-      toast.error("Could not find selected object");
+    if (!userObject) {
+      toast.error("Launch a satellite first");
       return;
     }
-    const { fragments, collision } = spawnFragmentsDetailed(
-      parent,
-      {
-        count: inputs.count,
-        impactorMassKg: inputs.impactorMassKg,
-        impactorVelKms: inputs.impactorVelKms,
-        impactorDirVNC: { v: inputs.dirV, n: inputs.dirN, c: inputs.dirC },
-        ejectaConeDeg: inputs.ejectaConeDeg,
-      },
-      time
-    );
-    // Trigger the break-apart animation at the impact site.
-    if (collision) {
-      setCollisionEvent({ ...collision, key: Date.now() });
-      window.setTimeout(() => setCollisionEvent(null), 3000);
-    }
-    if (fragments.length === 0) {
-      toast.error("Cascade failed — fragments escaped or decayed");
+    const victim = renderedCatalog.find((o) => o.id === victimId);
+    if (!victim) {
+      toast.error("Could not find the conjunction target");
       return;
     }
-    fragments.forEach((fragment) => {
-      fragment.collisionGeneration = 0;
-    });
+
+    // Jump the sim clock to the moment of impact and pause.
+    setPlaying(false);
+    setOffsetMin((collisionTime.getTime() - baseTime.current.getTime()) / 60_000);
 
     setCascadeRunning(true);
-
-    const newCascade = new Set(cascadeIds);
-    newCascade.add(id);
-    fragments.forEach((f) => newCascade.add(f.id));
-
-    let chainFragments: OrbitObject[] = [];
-    let destroyedIds: string[] = [];
-    let events: Array<{ victimId: string; generation: number }> = [];
-
     try {
-      if (inputs.chainEnabled) {
-        const result = await runChainReactionAsync(catalog, fragments, time, {
-          horizonMin: inputs.chainHorizonMin,
-          missDistanceKm: inputs.missDistanceKm,
-        });
-        chainFragments = result.newFragments;
-        destroyedIds = result.destroyedIds;
-        events = result.events;
-        destroyedIds.forEach((d) => newCascade.add(d));
-        chainFragments.forEach((f) => newCascade.add(f.id));
-      }
+      const { fragments, collision, vRelKms } = spawnCollision(
+        victim,
+        userObject,
+        { massKg: body.massKg, charLenM: body.charLenM },
+        collisionTime
+      );
 
-      setCatalog((prev) => [...prev, ...fragments, ...chainFragments]);
+      if (collision) {
+        setCollisionEvent({ ...collision, key: Date.now() });
+        window.setTimeout(() => setCollisionEvent(null), 3000);
+      }
+      if (fragments.length === 0) {
+        toast.error("Collision produced no surviving fragments");
+        return;
+      }
+      fragments.forEach((f) => (f.collisionGeneration = 0));
+
+      const newCascade = new Set(cascadeIds);
+      newCascade.add(victim.id);
+      fragments.forEach((f) => newCascade.add(f.id));
+
+      // Cascade onward through the catalog.
+      const result = await runChainReactionAsync(catalog, fragments, collisionTime, {
+        horizonMin: 90,
+        missDistanceKm: 5,
+      });
+      result.destroyedIds.forEach((d) => newCascade.add(d));
+      result.newFragments.forEach((f) => newCascade.add(f.id));
+
+      setCatalog((prev) => [...prev, ...fragments, ...result.newFragments]);
       setCascadeIds(newCascade);
 
-      const totalFrags = fragments.length + chainFragments.length;
-      const generations = events.reduce((m, e) => Math.max(m, e.generation), 0);
-      if (events.length > 0) {
-        toast.success(
-          `Cascade: ${totalFrags} fragments · ${events.length} secondary collisions · ${generations} generation${generations === 1 ? "" : "s"}`
-        );
-      } else {
-        toast.success(
-          `Cascade: ${totalFrags} fragments · no chain hits within horizon`
-        );
-      }
+      const total = fragments.length + result.newFragments.length;
+      toast.warning(
+        `Impact · ${body.name} hit ${victim.name} at ${vRelKms.toFixed(1)} km/s · ${total} fragments · ${result.events.length} secondary collision${result.events.length === 1 ? "" : "s"}`
+      );
     } finally {
       setCascadeRunning(false);
     }
   };
+
 
   const reset = () => {
     setCatalog((prev) => prev.filter((o) => !o.id.startsWith("frag-")));
