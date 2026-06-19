@@ -141,14 +141,16 @@ const Index = () => {
   );
 
   // Launch-driven collision: the user's launched body strikes a catalog object
-  // at the conjunction time. Relative velocity + geometry come from the orbits
-  // and the chosen spacecraft body — no imaginary impactor mass.
-  const triggerLaunchCollision = async (
+  // at the conjunction time. We rewind a touch before the impact and let it play
+  // out so the user sees the two bodies close in; the breakup fires the instant
+  // the sim clock reaches the collision time (see the watcher effect below).
+  const triggerLaunchCollision = (
     victimId: string,
     body: SpacecraftBody,
-    collisionTime: Date
+    collisionTime: Date,
+    horizonHours: number
   ) => {
-    if (cascadeRunning) return;
+    if (cascadeRunning || pendingCollision) return;
     if (!userObject) {
       toast.error("Launch a satellite first");
       return;
@@ -159,17 +161,36 @@ const Index = () => {
       return;
     }
 
-    // Jump the sim clock to the moment of impact and pause.
-    setPlaying(false);
-    setOffsetMin((collisionTime.getTime() - baseTime.current.getTime()) / 60_000);
+    // Rewind ~2 sim-minutes before impact and play forward at a slow speed so
+    // the approach is visible, then arm the breakup.
+    const leadMin = 2;
+    setOffsetMin(
+      (collisionTime.getTime() - leadMin * 60_000 - baseTime.current.getTime()) / 60_000
+    );
+    setSpeed(20);
+    setPlaying(true);
+    setPendingCollision({ victimId, body, collisionTime, horizonHours });
+    toast.info(`Closing on ${victim.name} — impact in ${leadMin} min…`);
+  };
 
+  // Execute the actual breakup once the clock reaches the collision instant:
+  // delete the two colliding bodies, launch the fragments along their post-
+  // impact vectors, then cascade secondary collisions over the chosen horizon.
+  const executeCollision = async (pc: NonNullable<typeof pendingCollision>) => {
+    const impactor = userObject;
+    const victim = renderedCatalog.find((o) => o.id === pc.victimId);
+    if (!impactor || !victim) {
+      setCascadeRunning(false);
+      return;
+    }
+    setPlaying(false);
     setCascadeRunning(true);
     try {
       const { fragments, collision, vRelKms } = spawnCollision(
         victim,
-        userObject,
-        { massKg: body.massKg, charLenM: body.charLenM },
-        collisionTime
+        impactor,
+        { massKg: pc.body.massKg, charLenM: pc.body.charLenM },
+        pc.collisionTime
       );
 
       if (collision) {
@@ -182,29 +203,55 @@ const Index = () => {
       }
       fragments.forEach((f) => (f.collisionGeneration = 0));
 
-      const newCascade = new Set(cascadeIds);
-      newCascade.add(victim.id);
-      fragments.forEach((f) => newCascade.add(f.id));
-
-      // Cascade onward through the catalog.
-      const result = await runChainReactionAsync(catalog, fragments, collisionTime, {
-        horizonMin: 90,
+      // Cascade onward over the user-chosen horizon (up to a week).
+      const survivingCatalog = catalog.filter((o) => o.id !== victim.id);
+      const result = await runChainReactionAsync(survivingCatalog, fragments, pc.collisionTime, {
+        horizonMin: pc.horizonHours * 60,
+        stepSec: 60,
         missDistanceKm: 5,
+        maxGenerations: 6,
+        maxNewFragments: 2000,
       });
+
+      const newCascade = new Set(cascadeIds);
+      fragments.forEach((f) => newCascade.add(f.id));
       result.destroyedIds.forEach((d) => newCascade.add(d));
       result.newFragments.forEach((f) => newCascade.add(f.id));
-
-      setCatalog((prev) => [...prev, ...fragments, ...result.newFragments]);
       setCascadeIds(newCascade);
+
+      // Delete the two main bodies that collided (plus any secondary victims)
+      // and inject the fragment clouds.
+      const destroyed = new Set<string>([victim.id, ...result.destroyedIds]);
+      setCatalog((prev) => [
+        ...prev.filter((o) => !destroyed.has(o.id)),
+        ...fragments,
+        ...result.newFragments,
+      ]);
+      setUserObject(null); // the impactor is consumed in the collision
+      setConjunctions([]);
+      setSelectedId(null);
 
       const total = fragments.length + result.newFragments.length;
       toast.warning(
-        `Impact · ${body.name} hit ${victim.name} at ${vRelKms.toFixed(1)} km/s · ${total} fragments · ${result.events.length} secondary collision${result.events.length === 1 ? "" : "s"}`
+        `Impact · ${pc.body.name} hit ${victim.name} at ${vRelKms.toFixed(1)} km/s · ${total} fragments · ${result.events.length} secondary collision${result.events.length === 1 ? "" : "s"} over ${pc.horizonHours} h`
       );
     } finally {
       setCascadeRunning(false);
     }
   };
+
+  // Fire the breakup the instant the sim clock reaches the armed collision time.
+  useEffect(() => {
+    if (!pendingCollision || cascadeRunning) return;
+    if (time.getTime() >= pendingCollision.collisionTime.getTime()) {
+      const pc = pendingCollision;
+      setPendingCollision(null);
+      void executeCollision(pc);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [time, pendingCollision, cascadeRunning]);
+
+
 
 
   const reset = () => {
