@@ -27,7 +27,12 @@ interface Props {
   setConjunctions: (c: Conjunction[]) => void;
   onAskCopilot: (prompt: string) => void;
   onSelect: (id: string | null) => void;
-  onSimulateCollision: (victimId: string, body: SpacecraftBody, collisionTime: Date) => void;
+  onSimulateCollision: (
+    victimId: string,
+    body: SpacecraftBody,
+    collisionTime: Date,
+    horizonHours: number
+  ) => void;
 }
 
 export function LaunchPanel({
