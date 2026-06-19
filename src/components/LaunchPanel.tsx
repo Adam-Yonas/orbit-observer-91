@@ -39,6 +39,7 @@ export function LaunchPanel({
   setConjunctions,
   onAskCopilot,
   onSelect,
+  onSimulateCollision,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [params, setParams] = useState<UserOrbitParams>({
@@ -50,6 +51,44 @@ export function LaunchPanel({
   });
   const [scanning, setScanning] = useState(false);
   const [missKm, setMissKm] = useState(10);
+
+  // Spacecraft body: generic CubeSat form factor, or an uploaded CAD model.
+  const [bodyMode, setBodyMode] = useState<"cubesat" | "cad">("cubesat");
+  const [formFactorKey, setFormFactorKey] = useState("3U");
+  const [cadBody, setCadBody] = useState<SpacecraftBody | null>(null);
+  const [parsingCad, setParsingCad] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const screenStart = useRef<Date | null>(null);
+
+  const cubeSpec = CUBESAT_FORM_FACTORS.find((f) => f.key === formFactorKey) ?? CUBESAT_FORM_FACTORS[2];
+  const activeBody: SpacecraftBody = bodyMode === "cad" && cadBody ? cadBody : cubeSatBody(cubeSpec);
+
+  async function handleCadUpload(file: File) {
+    setParsingCad(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const body = bodyFromStl(buf, file.name);
+      if (!body) {
+        toast.error("Could not parse CAD model — please upload a valid STL file");
+        return;
+      }
+      setCadBody(body);
+      setBodyMode("cad");
+      toast.success(
+        `Loaded ${body.name} · ${(body.dimsM.x * 100).toFixed(0)}×${(body.dimsM.y * 100).toFixed(0)}×${(body.dimsM.z * 100).toFixed(0)} cm · ${body.massKg.toFixed(1)} kg`
+      );
+    } catch {
+      toast.error("Failed to read CAD file");
+    } finally {
+      setParsingCad(false);
+    }
+  }
+
+  function playOutCollision(c: Conjunction) {
+    const start = screenStart.current ?? time;
+    const collisionTime = new Date(start.getTime() + c.timeOffsetMin * 60_000);
+    onSimulateCollision(c.victimId, activeBody, collisionTime);
+  }
 
   async function launch() {
     setScanning(true);
