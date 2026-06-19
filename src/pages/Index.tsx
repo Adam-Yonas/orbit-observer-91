@@ -8,8 +8,8 @@ import { AltitudeChart } from "@/components/AltitudeChart";
 import { Copilot } from "@/components/Copilot";
 import { AboutPanel } from "@/components/AboutPanel";
 import { LaunchPanel } from "@/components/LaunchPanel";
-import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnFragmentsDetailed, runChainReactionAsync, type Conjunction, type CollisionEvent } from "@/lib/orbital";
-import type { CascadeInputs } from "@/components/DetailsDrawer";
+import { generateCatalog, fetchLiveCatalog, OrbitObject, spawnCollision, runChainReactionAsync, type Conjunction, type CollisionEvent } from "@/lib/orbital";
+import type { SpacecraftBody } from "@/lib/spacecraft";
 import { Satellite, AlertTriangle, Radio, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
