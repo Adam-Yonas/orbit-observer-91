@@ -95,6 +95,10 @@ interface ImpactInputs {
   targetMassKg: number;
   targetKind: "payload" | "rocket_body" | "debris" | "user";
   catastrophic: boolean;
+  // Optional override for the impactor's characteristic length (m). When the
+  // impactor is a real body (CubeSat / CAD model) we pass its measured size
+  // instead of inferring it from mass assuming a solid steel cube.
+  impactorCharLenM?: number;
 }
 
 // Cube-root volume → characteristic length (m) for a steel body of given mass.
