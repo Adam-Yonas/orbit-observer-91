@@ -56,6 +56,8 @@ export function LaunchPanel({
   });
   const [scanning, setScanning] = useState(false);
   const [missKm, setMissKm] = useState(10);
+  // Cascade propagation horizon after a collision (hours, up to one week).
+  const [cascadeHours, setCascadeHours] = useState(72);
 
   // Spacecraft body: generic CubeSat form factor, or an uploaded CAD model.
   const [bodyMode, setBodyMode] = useState<"cubesat" | "cad">("cubesat");
