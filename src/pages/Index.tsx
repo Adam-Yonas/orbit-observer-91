@@ -293,12 +293,7 @@ const Index = () => {
       />
       <StatsBar catalog={catalog} visibleIds={visibleIds} />
       <AltitudeChart catalog={catalog} visibleIds={visibleIds} />
-      <DetailsDrawer
-        obj={selectedObj}
-        onClose={() => setSelectedId(null)}
-        onCascade={triggerCascade}
-        isCascading={cascadeRunning}
-      />
+      <DetailsDrawer obj={selectedObj} onClose={() => setSelectedId(null)} />
       <TimeScrubber
         time={time}
         baseTime={baseTime.current}
@@ -318,6 +313,7 @@ const Index = () => {
         setConjunctions={setConjunctions}
         onAskCopilot={(text) => setCopilotPrompt({ text, nonce: Date.now() })}
         onSelect={setSelectedId}
+        onSimulateCollision={triggerLaunchCollision}
       />
       <Copilot catalog={catalog} externalPrompt={copilotPrompt} />
       <AboutPanel />
