@@ -651,6 +651,86 @@ export function spawnFragmentsDetailed(
 }
 
 // ---------------------------------------------------------------------------
+// Launch-driven collision between two real orbiting bodies
+// ---------------------------------------------------------------------------
+// When the launch sim resolves a conjunction into an actual collision, the
+// user's launched body (CubeSat / CAD model) is the IMPACTOR and the catalog
+// object it hit is the TARGET. We sample both state vectors at the collision
+// instant, derive the true relative velocity (vector + magnitude), express the
+// approach direction in the target's VNC frame, and feed that into the
+// validated breakup model. No imaginary impactor mass — the numbers come from
+// the orbits and the chosen spacecraft body.
+
+export interface ImpactorBody {
+  massKg: number;
+  charLenM: number;
+}
+
+export interface CollisionResult extends SpawnResult {
+  vRelKms: number;
+}
+
+export function spawnCollision(
+  target: OrbitObject,
+  impactor: OrbitObject,
+  body: ImpactorBody,
+  collisionTime: Date,
+  count = 150
+): CollisionResult {
+  const tpv = satellite.propagate(target.satrec, collisionTime);
+  const ipv = satellite.propagate(impactor.satrec, collisionTime);
+  if (
+    !tpv || !ipv ||
+    !tpv.velocity || !ipv.velocity ||
+    typeof tpv.velocity === "boolean" || typeof ipv.velocity === "boolean"
+  ) {
+    return { fragments: [], collision: null, vRelKms: 0 };
+  }
+  const vt = tpv.velocity as satellite.EciVec3<number>;
+  const vi = ipv.velocity as satellite.EciVec3<number>;
+
+  // Relative velocity of the impactor with respect to the target.
+  const rel = { x: vi.x - vt.x, y: vi.y - vt.y, z: vi.z - vt.z };
+  const vRel = Math.hypot(rel.x, rel.y, rel.z) || 0.001;
+  const dir = { x: rel.x / vRel, y: rel.y / vRel, z: rel.z / vRel };
+
+  // Express the approach direction in the target's Velocity/Normal/Co-normal
+  // (VNC) frame so the breakup model biases the ejecta correctly.
+  const r0 = tpv.position as satellite.EciVec3<number>;
+  const vMag0 = Math.hypot(vt.x, vt.y, vt.z) || 1;
+  const Vhat = { x: vt.x / vMag0, y: vt.y / vMag0, z: vt.z / vMag0 };
+  const nx = r0.y * vt.z - r0.z * vt.y;
+  const ny = r0.z * vt.x - r0.x * vt.z;
+  const nz = r0.x * vt.y - r0.y * vt.x;
+  const nMag0 = Math.hypot(nx, ny, nz) || 1;
+  const Nhat = { x: nx / nMag0, y: ny / nMag0, z: nz / nMag0 };
+  const Chat = {
+    x: Vhat.y * Nhat.z - Vhat.z * Nhat.y,
+    y: Vhat.z * Nhat.x - Vhat.x * Nhat.z,
+    z: Vhat.x * Nhat.y - Vhat.y * Nhat.x,
+  };
+  const dirVNC = {
+    v: dir.x * Vhat.x + dir.y * Vhat.y + dir.z * Vhat.z,
+    n: dir.x * Nhat.x + dir.y * Nhat.y + dir.z * Nhat.z,
+    c: dir.x * Chat.x + dir.y * Chat.y + dir.z * Chat.z,
+  };
+
+  const result = spawnFragmentsDetailed(
+    target,
+    {
+      count,
+      impactorMassKg: body.massKg,
+      impactorVelKms: vRel,
+      impactorDirVNC: dirVNC,
+      impactorCharLenM: body.charLenM,
+      ejectaConeDeg: 180,
+    },
+    collisionTime
+  );
+  return { ...result, vRelKms: vRel };
+}
+
+// ---------------------------------------------------------------------------
 // Chain-reaction conjunction screening
 // ---------------------------------------------------------------------------
 // After a breakup we step the simulation forward in coarse intervals and check
