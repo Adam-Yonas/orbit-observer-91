@@ -237,6 +237,71 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
         </Field>
       </div>
 
+      {/* Spacecraft body — defines the impactor in any collision */}
+      <div className="space-y-2 border-t border-border pt-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <Box className="w-3 h-3" /> Spacecraft body
+        </div>
+        <div className="flex rounded border border-border overflow-hidden text-[10px] font-mono uppercase tracking-wider">
+          <button
+            onClick={() => setBodyMode("cubesat")}
+            className={`flex-1 px-2 py-1.5 transition-colors ${bodyMode === "cubesat" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted/30"}`}
+          >
+            Generic CubeSat
+          </button>
+          <button
+            onClick={() => (cadBody ? setBodyMode("cad") : fileRef.current?.click())}
+            className={`flex-1 px-2 py-1.5 transition-colors ${bodyMode === "cad" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted/30"}`}
+          >
+            CAD model
+          </button>
+        </div>
+
+        {bodyMode === "cubesat" ? (
+          <div className="flex flex-wrap gap-1">
+            {CUBESAT_FORM_FACTORS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFormFactorKey(f.key)}
+                title={f.label}
+                className={`px-2 py-0.5 text-[10px] font-mono rounded border transition-colors ${
+                  formFactorKey === f.key
+                    ? "border-primary text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/60"
+                }`}
+              >
+                {f.key}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={parsingCad}
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border border-border text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:border-primary/60 disabled:opacity-50"
+          >
+            {parsingCad ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+            {cadBody ? "Replace STL" : "Upload STL"}
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".stl"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleCadUpload(file);
+            e.target.value = "";
+          }}
+        />
+        <div className="text-[10px] font-mono text-muted-foreground leading-relaxed">
+          {activeBody.name} · {(activeBody.dimsM.x * 100).toFixed(0)}×{(activeBody.dimsM.y * 100).toFixed(0)}×
+          {(activeBody.dimsM.z * 100).toFixed(0)} cm · {activeBody.massKg.toFixed(1)} kg ·{" "}
+          {activeBody.source === "cad" ? AVG_MATERIAL.name : `${AVG_MATERIAL.name} (avg)`}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <button
           onClick={launch}
