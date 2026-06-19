@@ -30,6 +30,12 @@ const Index = () => {
   const [cascadeIds, setCascadeIds] = useState<Set<string>>(new Set());
   const [cascadeRunning, setCascadeRunning] = useState(false);
   const [collisionEvent, setCollisionEvent] = useState<(CollisionEvent & { key: number }) | null>(null);
+  const [pendingCollision, setPendingCollision] = useState<{
+    victimId: string;
+    body: SpacecraftBody;
+    collisionTime: Date;
+    horizonHours: number;
+  } | null>(null);
   const [userObject, setUserObject] = useState<OrbitObject | null>(null);
   const [conjunctions, setConjunctions] = useState<Conjunction[]>([]);
   const [copilotPrompt, setCopilotPrompt] = useState<{ text: string; nonce: number } | null>(null);
