@@ -98,6 +98,7 @@ export function LaunchPanel({
       setScanning(false);
       return;
     }
+    screenStart.current = time;
     setUserObject(obj);
     onSelect(obj.id);
     try {
