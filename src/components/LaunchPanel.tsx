@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Rocket, Loader2, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Rocket, Loader2, ShieldAlert, ShieldCheck, Sparkles, Trash2, Box, Upload, Crosshair } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
   buildUserOrbit,
@@ -9,6 +9,13 @@ import {
   type Conjunction,
   type UserOrbitParams,
 } from "@/lib/orbital";
+import {
+  CUBESAT_FORM_FACTORS,
+  cubeSatBody,
+  bodyFromStl,
+  AVG_MATERIAL,
+  type SpacecraftBody,
+} from "@/lib/spacecraft";
 import { toast } from "sonner";
 
 interface Props {
@@ -20,6 +27,7 @@ interface Props {
   setConjunctions: (c: Conjunction[]) => void;
   onAskCopilot: (prompt: string) => void;
   onSelect: (id: string | null) => void;
+  onSimulateCollision: (victimId: string, body: SpacecraftBody, collisionTime: Date) => void;
 }
 
 export function LaunchPanel({
