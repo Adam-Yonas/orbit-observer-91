@@ -364,14 +364,32 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
             </div>
           )}
           {worst && (
-            <button
-              onClick={() => playOutCollision(worst)}
-              className="w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded border border-danger/60 text-danger hover:bg-danger/10 text-[10px] font-mono uppercase tracking-wider transition-colors"
-              title={`Advance to T+${worst.timeOffsetMin.toFixed(0)} min and model the impact`}
-            >
-              <Crosshair className="w-3 h-3" />
-              Let it play out → collision
-            </button>
+            <div className="space-y-1.5">
+              <Field
+                label="Cascade horizon"
+                value={
+                  cascadeHours >= 24
+                    ? `${(cascadeHours / 24).toFixed(cascadeHours % 24 === 0 ? 0 : 1)} d`
+                    : `${cascadeHours} h`
+                }
+              >
+                <Slider
+                  min={1}
+                  max={168}
+                  step={1}
+                  value={[cascadeHours]}
+                  onValueChange={([v]) => setCascadeHours(v)}
+                />
+              </Field>
+              <button
+                onClick={() => playOutCollision(worst)}
+                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded border border-danger/60 text-danger hover:bg-danger/10 text-[10px] font-mono uppercase tracking-wider transition-colors"
+                title={`Advance to T+${worst.timeOffsetMin.toFixed(0)} min and model the impact, then cascade for ${cascadeHours} h`}
+              >
+                <Crosshair className="w-3 h-3" />
+                Let it play out → collision
+              </button>
+            </div>
           )}
           {conjunctions.length > 1 && (
             <details className="text-[10px]">
