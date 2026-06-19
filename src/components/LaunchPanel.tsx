@@ -94,7 +94,7 @@ export function LaunchPanel({
   function playOutCollision(c: Conjunction) {
     const start = screenStart.current ?? time;
     const collisionTime = new Date(start.getTime() + c.timeOffsetMin * 60_000);
-    onSimulateCollision(c.victimId, activeBody, collisionTime);
+    onSimulateCollision(c.victimId, activeBody, collisionTime, cascadeHours);
   }
 
   async function launch() {
