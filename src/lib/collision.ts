@@ -129,7 +129,7 @@ export function simulateImpact(inp: ImpactInputs): CollisionModel {
   const t2 = cross(n, t1);
 
   const target = targetGeometry(inp.targetMassKg, inp.targetKind);
-  const impactorSizeM = charLengthFromMass(inp.impactorMassKg);
+  const impactorSizeM = inp.impactorCharLenM ?? charLengthFromMass(inp.impactorMassKg);
 
   // Impact point sits on the front (impactor-facing) face of the target,
   // i.e. one half-extent back along the penetration axis from the centre.
