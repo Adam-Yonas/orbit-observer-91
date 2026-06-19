@@ -199,6 +199,9 @@ export interface CascadeParams {
   // ejecta is biased into. 180 = fully isotropic (default); smaller values
   // produce a focused debris jet in the direction of the impact.
   ejectaConeDeg?: number;
+  // Optional measured characteristic length (m) of the impactor body (CubeSat
+  // or CAD model). Used by the collision model instead of a steel-cube guess.
+  impactorCharLenM?: number;
 }
 
 export interface ChainCollisionEvent {
