@@ -525,6 +525,7 @@ export function spawnFragmentsDetailed(
     targetMassKg: targetMass,
     targetKind: parent.kind,
     catastrophic,
+    impactorCharLenM: params.impactorCharLenM,
   });
 
   // Ejecta cone half-angle. 180° ⇒ fully isotropic (real catastrophic
