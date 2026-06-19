@@ -95,6 +95,10 @@ interface ImpactInputs {
   targetMassKg: number;
   targetKind: "payload" | "rocket_body" | "debris" | "user";
   catastrophic: boolean;
+  // Optional override for the impactor's characteristic length (m). When the
+  // impactor is a real body (CubeSat / CAD model) we pass its measured size
+  // instead of inferring it from mass assuming a solid steel cube.
+  impactorCharLenM?: number;
 }
 
 // Cube-root volume → characteristic length (m) for a steel body of given mass.
@@ -125,7 +129,7 @@ export function simulateImpact(inp: ImpactInputs): CollisionModel {
   const t2 = cross(n, t1);
 
   const target = targetGeometry(inp.targetMassKg, inp.targetKind);
-  const impactorSizeM = charLengthFromMass(inp.impactorMassKg);
+  const impactorSizeM = inp.impactorCharLenM ?? charLengthFromMass(inp.impactorMassKg);
 
   // Impact point sits on the front (impactor-facing) face of the target,
   // i.e. one half-extent back along the penetration axis from the centre.

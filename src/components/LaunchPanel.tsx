@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Rocket, Loader2, ShieldAlert, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Rocket, Loader2, ShieldAlert, ShieldCheck, Sparkles, Trash2, Box, Upload, Crosshair } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import {
   buildUserOrbit,
@@ -9,6 +9,13 @@ import {
   type Conjunction,
   type UserOrbitParams,
 } from "@/lib/orbital";
+import {
+  CUBESAT_FORM_FACTORS,
+  cubeSatBody,
+  bodyFromStl,
+  AVG_MATERIAL,
+  type SpacecraftBody,
+} from "@/lib/spacecraft";
 import { toast } from "sonner";
 
 interface Props {
@@ -20,6 +27,7 @@ interface Props {
   setConjunctions: (c: Conjunction[]) => void;
   onAskCopilot: (prompt: string) => void;
   onSelect: (id: string | null) => void;
+  onSimulateCollision: (victimId: string, body: SpacecraftBody, collisionTime: Date) => void;
 }
 
 export function LaunchPanel({
@@ -31,6 +39,7 @@ export function LaunchPanel({
   setConjunctions,
   onAskCopilot,
   onSelect,
+  onSimulateCollision,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [params, setParams] = useState<UserOrbitParams>({
@@ -43,6 +52,44 @@ export function LaunchPanel({
   const [scanning, setScanning] = useState(false);
   const [missKm, setMissKm] = useState(10);
 
+  // Spacecraft body: generic CubeSat form factor, or an uploaded CAD model.
+  const [bodyMode, setBodyMode] = useState<"cubesat" | "cad">("cubesat");
+  const [formFactorKey, setFormFactorKey] = useState("3U");
+  const [cadBody, setCadBody] = useState<SpacecraftBody | null>(null);
+  const [parsingCad, setParsingCad] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const screenStart = useRef<Date | null>(null);
+
+  const cubeSpec = CUBESAT_FORM_FACTORS.find((f) => f.key === formFactorKey) ?? CUBESAT_FORM_FACTORS[2];
+  const activeBody: SpacecraftBody = bodyMode === "cad" && cadBody ? cadBody : cubeSatBody(cubeSpec);
+
+  async function handleCadUpload(file: File) {
+    setParsingCad(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const body = bodyFromStl(buf, file.name);
+      if (!body) {
+        toast.error("Could not parse CAD model — please upload a valid STL file");
+        return;
+      }
+      setCadBody(body);
+      setBodyMode("cad");
+      toast.success(
+        `Loaded ${body.name} · ${(body.dimsM.x * 100).toFixed(0)}×${(body.dimsM.y * 100).toFixed(0)}×${(body.dimsM.z * 100).toFixed(0)} cm · ${body.massKg.toFixed(1)} kg`
+      );
+    } catch {
+      toast.error("Failed to read CAD file");
+    } finally {
+      setParsingCad(false);
+    }
+  }
+
+  function playOutCollision(c: Conjunction) {
+    const start = screenStart.current ?? time;
+    const collisionTime = new Date(start.getTime() + c.timeOffsetMin * 60_000);
+    onSimulateCollision(c.victimId, activeBody, collisionTime);
+  }
+
   async function launch() {
     setScanning(true);
     const obj = buildUserOrbit(params, time);
@@ -51,6 +98,7 @@ export function LaunchPanel({
       setScanning(false);
       return;
     }
+    screenStart.current = time;
     setUserObject(obj);
     onSelect(obj.id);
     try {
@@ -189,6 +237,71 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
         </Field>
       </div>
 
+      {/* Spacecraft body — defines the impactor in any collision */}
+      <div className="space-y-2 border-t border-border pt-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <Box className="w-3 h-3" /> Spacecraft body
+        </div>
+        <div className="flex rounded border border-border overflow-hidden text-[10px] font-mono uppercase tracking-wider">
+          <button
+            onClick={() => setBodyMode("cubesat")}
+            className={`flex-1 px-2 py-1.5 transition-colors ${bodyMode === "cubesat" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted/30"}`}
+          >
+            Generic CubeSat
+          </button>
+          <button
+            onClick={() => (cadBody ? setBodyMode("cad") : fileRef.current?.click())}
+            className={`flex-1 px-2 py-1.5 transition-colors ${bodyMode === "cad" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted/30"}`}
+          >
+            CAD model
+          </button>
+        </div>
+
+        {bodyMode === "cubesat" ? (
+          <div className="flex flex-wrap gap-1">
+            {CUBESAT_FORM_FACTORS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFormFactorKey(f.key)}
+                title={f.label}
+                className={`px-2 py-0.5 text-[10px] font-mono rounded border transition-colors ${
+                  formFactorKey === f.key
+                    ? "border-primary text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/60"
+                }`}
+              >
+                {f.key}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={parsingCad}
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border border-border text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:border-primary/60 disabled:opacity-50"
+          >
+            {parsingCad ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+            {cadBody ? "Replace STL" : "Upload STL"}
+          </button>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".stl"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleCadUpload(file);
+            e.target.value = "";
+          }}
+        />
+        <div className="text-[10px] font-mono text-muted-foreground leading-relaxed">
+          {activeBody.name} · {(activeBody.dimsM.x * 100).toFixed(0)}×{(activeBody.dimsM.y * 100).toFixed(0)}×
+          {(activeBody.dimsM.z * 100).toFixed(0)} cm · {activeBody.massKg.toFixed(1)} kg ·{" "}
+          {activeBody.source === "cad" ? AVG_MATERIAL.name : `${AVG_MATERIAL.name} (avg)`}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <button
           onClick={launch}
@@ -242,6 +355,16 @@ Recommend a similar but conflict-free orbit. Use catalog tools to find an altitu
                 {worst.altKm.toFixed(0)} km alt
               </div>
             </div>
+          )}
+          {worst && (
+            <button
+              onClick={() => playOutCollision(worst)}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded border border-danger/60 text-danger hover:bg-danger/10 text-[10px] font-mono uppercase tracking-wider transition-colors"
+              title={`Advance to T+${worst.timeOffsetMin.toFixed(0)} min and model the impact`}
+            >
+              <Crosshair className="w-3 h-3" />
+              Let it play out → collision
+            </button>
           )}
           {conjunctions.length > 1 && (
             <details className="text-[10px]">
